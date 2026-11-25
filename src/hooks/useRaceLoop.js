@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useRef } from 'react'
-import { stepKart, detectSurface, collideKarts, collidePosts } from '../game/physics'
+import { stepKart, detectSurface, collideKarts, collideBoxes } from '../game/physics'
 import { aiInput } from '../game/ai'
 import { pointAt, yawAt, LAP_LENGTH } from '../game/path'
 import { SUN_DIR } from '../SkyDome'
@@ -62,8 +62,8 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
       else input = aiInput(st, kt.ai || { lane: 0, phase: 0, skill: 0.9 }, P.raceDist + P.offset - st.offset, R.t)
       if (kt.player && st.finished) st.maxMul = 0.85
       stepKart(st, input, dt)
-      collidePosts(st, track.colliders.posts)
-      st.surface = kt.player ? detectSurface(st, track.colliders.road, track.colliders.runoff) : detectSurface(st)
+      collideBoxes(st, track.colliders.boxes)
+      st.surface = detectSurface(st)
     }
     collideKarts(field.map((f) => f.st))
 

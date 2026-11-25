@@ -2,7 +2,10 @@ import * as THREE from 'three'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { locate, pointAt, curvatureAt, LAP_LENGTH, WALL_LIMIT } from './game/path'
+import { heightAt } from './game/terrain'
+import { locate, pointAt, curvatureAt, LAP_LENGTH, VERGE_OUT, WORLD_SCALE } from './game/path'
+
+const EDGE = VERGE_OUT // outer edge of the striped verge
 
 // Everything here is instanced: thousands of details for a handful of draw calls.
 
@@ -16,7 +19,7 @@ function rng(seed) { // mulberry32
 }
 
 // keep the pit building, grandstand and start gantry area clear
-const nearPits = (x, z) => x > 160 && x < 290 && z > -70 && z < 70
+const nearPits = (x, z) => x > 160 * WORLD_SCALE && x < 290 * WORLD_SCALE && z > -70 * WORLD_SCALE && z < 70 * WORLD_SCALE
 const clearOfTrack = (x, z, min) => Math.abs(locate(x, z).lat) > min
 
 /* ---------- geometries ---------- */
@@ -50,10 +53,10 @@ const G = {
 
 const M = {
   trunk: new THREE.MeshStandardMaterial({ color: '#7a4a26', roughness: 0.9 }),
-  leaves: new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.55, sheen: 1, sheenColor: new THREE.Color('#e4ffb0'), sheenRoughness: 0.45, clearcoat: 0.25, clearcoatRoughness: 0.5 }),
+  leaves: new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.8, sheen: 0.3, sheenColor: new THREE.Color('#e4ffb0'), sheenRoughness: 0.6 }),
   grass: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.8 }),
   flower: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.5 }),
-  tire: new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.45, clearcoat: 0.6 }),
+  tire: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.7 }),
   rock: new THREE.MeshStandardMaterial({ color: '#a9a39a', roughness: 0.85, flatShading: true }),
   cloud: new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#e4efff', emissiveIntensity: 0.5, roughness: 1, fog: false }),
   pole: new THREE.MeshStandardMaterial({ color: '#f2f2f2', metalness: 0.6, roughness: 0.3 }),
@@ -74,22 +77,22 @@ function useLayout(blenderTrees) {
       }
     }
     // trees: Blender positions + extra forest, mixing round trees and pines
-    for (const t of blenderTrees) if (!nearPits(t.x, t.z) && clearOfTrack(t.x, t.z, 20)) (r() < 0.6 ? out.round : out.pine).push([t.x, t.z, t.s * (0.9 + r() * 0.3), r() * 6.28])
-    scatter(220, 22, 470, (x, z) => (r() < 0.55 ? out.round : out.pine).push([x, z, 0.8 + r() * 0.7, r() * 6.28]))
+    for (const t of blenderTrees) if (!nearPits(t.x, t.z) && clearOfTrack(t.x, t.z, EDGE + 9)) (r() < 0.6 ? out.round : out.pine).push([t.x, t.z, t.s * (0.9 + r() * 0.3), r() * 6.28])
+    scatter(300, EDGE + 10, 660, (x, z) => (r() < 0.55 ? out.round : out.pine).push([x, z, 0.8 + r() * 0.7, r() * 6.28]))
     // bushes hugging the outside of the barriers
     for (let s = 0; s < LAP_LENGTH; s += 7) {
       const side = r() < 0.5 ? -1 : 1
-      const p = pointAt(s + r() * 4, side * (WALL_LIMIT + 3.5 + r() * 5))
+      const p = pointAt(s + r() * 4, side * (EDGE + 3 + r() * 6))
       if (!nearPits(p.x, p.z)) out.bush.push([p.x, p.z, 0.8 + r() * 0.8, r() * 6.28])
     }
     // grass tufts and flower patches near the track
     for (let s = 0; s < LAP_LENGTH; s += 0.55) {
       const side = r() < 0.5 ? -1 : 1
-      const p = pointAt(s, side * (WALL_LIMIT + 2.2 + r() * r() * 30))
+      const p = pointAt(s, side * (EDGE + 0.6 + r() * r() * 30))
       if (!nearPits(p.x, p.z)) out.tuft.push([p.x, p.z, 0.6 + r() * 0.9, r() * 6.28])
     }
     for (let k = 0; k < 90; k++) { // flower patches
-      const s = r() * LAP_LENGTH, side = r() < 0.5 ? -1 : 1, lat = side * (WALL_LIMIT + 4 + r() * 25)
+      const s = r() * LAP_LENGTH, side = r() < 0.5 ? -1 : 1, lat = side * (EDGE + 4 + r() * 25)
       const c = pointAt(s, lat)
       if (nearPits(c.x, c.z)) continue
       const hue = [0.0, 0.13, 0.58, 0.83, 0.08][k % 5]
@@ -100,7 +103,7 @@ function useLayout(blenderTrees) {
     for (let s = 0; s < LAP_LENGTH; s += 2.2) {
       const c = curvatureAt(s)
       if (Math.abs(c) < 0.012) continue
-      const p = pointAt(s, -Math.sign(c) * (WALL_LIMIT + 1.6))
+      const p = pointAt(s, -Math.sign(c) * (EDGE + 5))
       if (nearPits(p.x, p.z)) continue
       for (let h = 0; h < 3; h++) out.tire.push([p.x, p.z, h, (stack + h) % 2])
       stack++
@@ -109,14 +112,14 @@ function useLayout(blenderTrees) {
     for (let s = 20; s < LAP_LENGTH; s += 36) {
       if (Math.abs(curvatureAt(s)) > 0.006) continue
       for (const side of [-1, 1]) {
-        const p = pointAt(s, side * (WALL_LIMIT + 1.4))
+        const p = pointAt(s, side * (EDGE + 1.2))
         if (!nearPits(p.x, p.z)) out.flag.push([p.x, p.z, side, s])
       }
     }
-    scatter(70, 26, 430, (x, z) => out.rock.push([x, z, 0.5 + r() * 1.6, r() * 6.28]))
+    scatter(90, EDGE + 12, 600, (x, z) => out.rock.push([x, z, 0.5 + r() * 1.6, r() * 6.28]))
     // clouds
     for (let c = 0; c < 26; c++) {
-      const a = (c / 26) * Math.PI * 2 + r() * 0.2, R = 520 + r() * 260, y = 90 + r() * 70
+      const a = (c / 26) * Math.PI * 2 + r() * 0.2, R = 720 + r() * 300, y = 90 + r() * 70
       const cx = Math.cos(a) * R, cz = Math.sin(a) * R
       for (let p = 0; p < 6; p++) out.cloud.push([cx + (r() - 0.5) * 60, y + r() * 10, cz + (r() - 0.5) * 25, 12 + r() * 14])
     }
@@ -140,7 +143,7 @@ function Instances({ geometry, material, items, place, color, castShadow = true,
   return <instancedMesh ref={ref} args={[geometry, material, items.length]} castShadow={castShadow} receiveShadow={receiveShadow} />
 }
 
-const ground = (m, [x, z, s, rot]) => { m.position.set(x, 0, z); m.scale.setScalar(s); m.rotation.set(0, rot, 0) }
+const ground = (m, [x, z, s, rot]) => { m.position.set(x, heightAt(x, z) - 0.05, z); m.scale.setScalar(s); m.rotation.set(0, rot, 0) }
 const leafColor = (base, spread) => (c, it, i) => c.setHSL(base + ((i * 0.618) % 1) * spread, 0.62, 0.36 + ((i * 0.37) % 1) * 0.12)
 
 export default function Scenery({ trees }) {
@@ -167,21 +170,21 @@ export default function Scenery({ trees }) {
       <Instances geometry={G.flower} material={M.flower} items={L.flower} place={ground} castShadow={false}
         color={(c, it) => c.setHSL(it[4], 0.85, 0.6)} />
       <Instances geometry={G.tire} material={M.tire} items={L.tire}
-        place={(m, [x, z, h]) => { m.position.set(x, h * 0.4, z); m.scale.setScalar(1); m.rotation.set(0, 0, 0) }}
+        place={(m, [x, z, h]) => { m.position.set(x, heightAt(x, z) + h * 0.4, z); m.scale.setScalar(1); m.rotation.set(0, 0, 0) }}
         color={(c, it) => c.set(it[3] ? '#f4f4f4' : '#e8231c')} />
       <Instances geometry={G.rock} material={M.rock} items={L.rock}
-        place={(m, [x, z, s, rot]) => { m.position.set(x, s * 0.25, z); m.scale.set(s, s * 0.65, s * 0.9); m.rotation.set(rot * 0.3, rot, 0) }} />
+        place={(m, [x, z, s, rot]) => { m.position.set(x, heightAt(x, z) + s * 0.25, z); m.scale.set(s, s * 0.65, s * 0.9); m.rotation.set(rot * 0.3, rot, 0) }} />
       <group ref={clouds}>
         <Instances geometry={G.puff} material={M.cloud} items={L.cloud} castShadow={false} receiveShadow={false}
           place={(m, [x, y, z, s]) => { m.position.set(x, y, z); m.scale.set(s * 1.4, s * 0.75, s); m.rotation.set(0, 0, 0) }} />
       </group>
       <Instances geometry={G.pole} material={M.pole} items={L.flag}
-        place={(m, [x, z]) => { m.position.set(x, 0, z); m.scale.setScalar(1); m.rotation.set(0, 0, 0) }} />
+        place={(m, [x, z]) => { m.position.set(x, heightAt(x, z), z); m.scale.setScalar(1); m.rotation.set(0, 0, 0) }} />
       <group ref={flags}>
         {L.flag.map(([x, z, side, s], i) => {
           const base = Math.atan2(-(pointAt(s + 2).z - pointAt(s).z), pointAt(s + 2).x - pointAt(s).x) + Math.PI
           return (
-            <mesh key={i} geometry={G.banner} position={[x, 0, z]} rotation={[0, base, 0]} userData={{ base }} castShadow>
+            <mesh key={i} geometry={G.banner} position={[x, heightAt(x, z), z]} rotation={[0, base, 0]} userData={{ base }} castShadow>
               <meshStandardMaterial color={flagColors[i % flagColors.length]} side={THREE.DoubleSide} roughness={0.6} />
             </mesh>
           )

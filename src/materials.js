@@ -19,7 +19,7 @@ const NOISE_GLSL = /* glsl */ `
  * Adds world-space noise to a material.
  * @param {object} o  { large, fine, largeAmt, fineAmt, rough } – scales and strengths
  */
-function addWorldNoise(material, o) {
+export function addWorldNoise(material, o) {
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWorldPosN;')
@@ -93,18 +93,19 @@ export function styleTrack(root) {
       m = physical(src, { color: new THREE.Color('#3a3d47'), roughness: 0.82 })
       addWorldNoise(m, { large: 0.035, fine: 3.5, largeAmt: 0.35, fineAmt: 0.25, rough: 0.3 })
     } else if (n === 'Grass' || n === 'Hill_Green') {
-      m = physical(src, { roughness: 0.95, sheen: 0.6, sheenColor: new THREE.Color('#c8ff8a'), sheenRoughness: 0.6 })
+      // natural meadow green (the Blender colour reads as neon on screen)
+      m = physical(src, { color: new THREE.Color(n === 'Grass' ? '#4f9134' : '#5a9a3c'), roughness: 0.95, sheen: 0.15, sheenColor: new THREE.Color('#c8f0a0'), sheenRoughness: 0.7 })
       addWorldNoise(m, { large: n === 'Grass' ? 0.02 : 0.004, fine: 1.4, largeAmt: 0.55, fineAmt: 0.25, rough: 0.1 })
     } else if (n === 'Concrete') {
       m = physical(src, { roughness: 0.85 })
       addWorldNoise(m, { large: 0.08, fine: 6, largeAmt: 0.2, fineAmt: 0.12, rough: 0.2 })
     } else if (n === 'Leaves') {
-      m = physical(src, { roughness: 0.6, sheen: 1, sheenColor: new THREE.Color('#d6ff9c'), sheenRoughness: 0.4, clearcoat: 0.3, clearcoatRoughness: 0.4 })
+      m = physical(src, { roughness: 0.8, sheen: 0.25, sheenColor: new THREE.Color('#d6ff9c'), sheenRoughness: 0.6 })
     } else if (n === 'Cloud') {
       m = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#dfeeff', emissiveIntensity: 0.55, roughness: 1, fog: false })
       m.name = n
     } else if (/Kerb|Barrier|Steel|Seats|Balloon|Gantry|Line_White/.test(n)) {
-      m = physical(src, { roughness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.15 })
+      m = physical(src, { roughness: 0.6 })
     } else if (n === 'Glass') {
       m = physical(src, { roughness: 0.05, metalness: 0.2, clearcoat: 1 })
     }

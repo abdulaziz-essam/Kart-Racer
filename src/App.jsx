@@ -1,7 +1,7 @@
 import { Suspense, useCallback, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { SoftShadows } from '@react-three/drei'
-import { EffectComposer, N8AO, Bloom, Vignette, ToneMapping, SMAA } from '@react-three/postprocessing'
+import { EffectComposer, N8AO, Bloom, Vignette, ToneMapping, SMAA, HueSaturation, BrightnessContrast } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import SkyDome from './SkyDome'
 import Track from './Track'
@@ -31,7 +31,7 @@ export default function App() {
         camera={{ fov: 60, near: 0.3, far: 4000, position: [200, 6, 20] }}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
       >
-        <fog attach="fog" args={['#dfe9f0', 320, 1300]} />
+        <fog attach="fog" args={['#cfe0ec', 420, 1700]} />
         <hemisphereLight args={['#cfe6ff', '#6b8f3a', 0.65]} />
         <SoftShadows size={18} samples={12} focus={0.6} />
         <SkyDome />
@@ -43,8 +43,10 @@ export default function App() {
         </Suspense>
         <EffectComposer multisampling={0} enableNormalPass={false}>
           <N8AO aoRadius={1.6} distanceFalloff={1.2} intensity={2.2} color="#20263a" halfRes quality="medium" />
-          <Bloom mipmapBlur luminanceThreshold={0.95} luminanceSmoothing={0.2} intensity={0.45} />
+          <Bloom mipmapBlur luminanceThreshold={1.1} luminanceSmoothing={0.2} intensity={0.15} />
           <ToneMapping mode={ToneMappingMode.NEUTRAL} />
+          <HueSaturation saturation={0.05} />
+          <BrightnessContrast contrast={0.06} />
           <Vignette offset={0.32} darkness={0.42} />
           <SMAA />
         </EffectComposer>

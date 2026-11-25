@@ -3,17 +3,15 @@ import { useMemo, useRef } from 'react'
 import { useGLTF } from '@react-three/drei'
 import { useTexture } from '@react-three/drei'
 import { useKeys } from './useKeys'
-import { prepareKart, makeKart } from './game/kartModel'
 import { makeKenneyKart } from './game/kenneyModel'
 import { createKartState } from './game/physics'
 import { pointAt, yawAt, LAP_LENGTH } from './game/path'
 import { useRaceLoop } from './hooks/useRaceLoop'
-import { RACERS, KENNEY_MODELS, GRID_ORDER, LINE_S, kenneyUrl } from './game/constants'
+import { RACERS, KENNEY_MODELS, GRID_ORDER, LINE_S, kenneyUrl, gridSlot } from './game/constants'
 
 export { LAPS, RACERS } from './game/constants'
 
 export default function Race({ track, hud, onPhase, onFinish }) {
-  const { scene: kartScene } = useGLTF('/models/kart.glb')
   const kenney = useGLTF(KENNEY_MODELS.map(kenneyUrl))
   const palette = useTexture('/models/kenney/Textures/variation-b.png', (t) => {
     t.flipY = false; t.colorSpace = THREE.SRGBColorSpace
@@ -23,21 +21,14 @@ export default function Race({ track, hud, onPhase, onFinish }) {
   const keys = useKeys()
   const sun = useRef()
 
-  const proto = useMemo(() => prepareKart(kartScene), [kartScene])
-
   const field = useMemo(() => RACERS.map((r, idx) => {
-    const slot = GRID_ORDER.indexOf(idx)
-    const row = Math.floor(slot / 2), col = slot % 2
-    const s = LINE_S - 7 - row * 8 - col * 3.5
-    const lat = col ? -2.8 : 2.8
+    const { s, lat } = gridSlot(GRID_ORDER.indexOf(idx))
     const pos = pointAt(s, lat)
     const st = createKartState(pos, yawAt(s), { offset: s - LINE_S })
     if (st.offset > 0) st.offset -= LAP_LENGTH
-    const kart = r.model
-      ? makeKenneyKart(kenney[KENNEY_MODELS.indexOf(r.model)].scene, palette, r.paint)
-      : makeKart(proto, r.paint, r.helmet)
+    const kart = makeKenneyKart(kenney[KENNEY_MODELS.indexOf(r.model)].scene, palette, r.paint)
     return { ...r, idx, st, kart, ai: r.player ? null : { lane: lat * 0.6, phase: idx * 1.7, skill: r.skill } }
-  }), [proto, kenney, palette])
+  }), [kenney, palette])
 
   useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
 
@@ -52,5 +43,4 @@ export default function Race({ track, hud, onPhase, onFinish }) {
   )
 }
 
-useGLTF.preload('/models/kart.glb')
 KENNEY_MODELS.forEach((m) => useGLTF.preload(kenneyUrl(m)))

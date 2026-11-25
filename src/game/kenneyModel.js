@@ -12,7 +12,7 @@ const TO_KART = new THREE.Euler(0, -Math.PI / 2, 0) // model front (-Z) -> kart 
  * with the team colour so dark trim, tyres and windows keep their colours.
  */
 function teamMaterial(map, tint) {
-  const m = new THREE.MeshPhysicalMaterial({ map, roughness: 0.28, clearcoat: 1, clearcoatRoughness: 0.08, metalness: 0.02 })
+  const m = new THREE.MeshPhysicalMaterial({ map, roughness: 0.55, clearcoat: 0.15, clearcoatRoughness: 0.5, metalness: 0, envMapIntensity: 0.45 })
   const color = new THREE.Color(tint)
   m.onBeforeCompile = (shader) => {
     shader.uniforms.tint = { value: color }

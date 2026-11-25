@@ -1,11 +1,19 @@
 import * as THREE from 'three'
 import data from '../trackPath.json'
 
+// The Blender layout is scaled up for a bigger circuit; Track.jsx scales the
+// Blender props (stands, pits, gantry, trees) by the same factor.
+export const WORLD_SCALE = 1.4
+
 // Racing line = centre of the road ribbon exported from Blender (x, z pairs),
 // ordered in the race direction.
-export const POINTS = data.points.map(([x, z]) => new THREE.Vector2(x, z))
-export const ROAD_HALF = data.width / 2 // 6 m
-export const WALL_LIMIT = 13.2          // max distance of a kart centre from the racing line
+export const POINTS = data.points.map(([x, z]) => new THREE.Vector2(x * WORLD_SCALE, z * WORLD_SCALE))
+
+// Cross-section of the circuit, in metres from the racing line
+export const ROAD_HALF = 9                 // asphalt (18 m wide)
+export const KERB_OUT = ROAD_HALF + 1.4    // red/white kerbs
+export const VERGE_OUT = KERB_OUT + 5      // striped mown-grass verge
+export const WALL_LIMIT = 95               // no visible walls: just keeps karts on the map
 const N = POINTS.length
 
 const cum = [0]

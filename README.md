@@ -26,7 +26,10 @@ Open http://localhost:5173 (or the port Vite prints).
 
 - `public/models/kart.glb`, `track.glb`: exported from Blender (glTF, Y-up).
 - `src/trackPath.json`: racing line (centre of the road ribbon) taken from `track.glb`.
-- `src/Track.jsx`: loads the track and merges static meshes per material (about 250 objects become about 20 draw calls).
+- `src/Track.jsx`: loads the Blender props, scales the layout 1.4x (`WORLD_SCALE` in `game/path.js`) and merges static meshes per material.
+- `src/TrackSurface.jsx`: the 18 m road, painted lines, kerbs, grass verges and start grid, generated from the racing line (no walls).
+- `src/Terrain.jsx` + `src/game/terrain.js`: sculpted landscape (flat by the track, banks, rolling hills); `heightAt()` places scenery on it.
+- `src/Props.jsx`: inflatable arches, chevron corner boards, tents, barrels, hay bales.
 - `src/Scenery.jsx`: instanced trees, bushes, grass, flowers, tyre walls, flags, rocks and clouds.
 - `src/Race.jsx`: grid, countdown, AI, laps, positions, chase camera and HUD.
 - `src/game/`: path maths, kart physics, AI driver and the kart model builder (merges the kart into a few meshes, recolours each team).
@@ -43,3 +46,5 @@ If the road changes, regenerate `trackPath.json`: vertices 0-599 and 600-1199 of
 Opponent cars: [Toy Car Kit](https://kenney.nl/assets/toy-car-kit) by Kenney (www.kenney.nl), CC0.
 The used models are in `public/models/kenney/`. The full downloaded pack is kept in `assets-src/` (git-ignored).
 Each car uses the kit's white "variation B" palette and is tinted with its team colour in `src/game/kenneyModel.js`.
+
+Drivers (ready, not yet placed in the karts): [Mini Characters](https://kenney.nl/assets/mini-characters) by Kenney, CC0, in `public/models/drivers/` (they include a `drive` animation).

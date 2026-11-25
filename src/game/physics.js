@@ -1,9 +1,9 @@
 import * as THREE from 'three'
-import { locate, WALL_LIMIT, ROAD_HALF, LAP_LENGTH } from './path'
+import { locate, WALL_LIMIT, KERB_OUT, VERGE_OUT, LAP_LENGTH } from './path'
 
 export const TUNING = {
   road: { max: 30, grip: 9 },
-  runoff: { max: 19, grip: 6 },
+  runoff: { max: 22, grip: 6.5 }, // striped grass verge just off the kerbs
   grass: { max: 12, grip: 4 },
   accel: 15, brake: 30, reverseMax: 9, drag: 0.6,
   steer: 2.0, driftSteer: 2.9, driftGrip: 2.2,
@@ -23,19 +23,10 @@ export function createKartState(pos, yaw, extra = {}) {
   return st
 }
 
-const ray = new THREE.Raycaster()
-const DOWN = new THREE.Vector3(0, -1, 0)
-const from = new THREE.Vector3()
-
-/** Which surface is under the kart: exact raycast for the player, lateral distance for AI. */
-export function detectSurface(st, roadMeshes, runoffMeshes) {
-  if (roadMeshes) {
-    ray.set(from.set(st.pos.x, 5, st.pos.z), DOWN); ray.far = 10
-    return ray.intersectObjects(roadMeshes, false).length ? 'road'
-      : ray.intersectObjects(runoffMeshes, false).length ? 'runoff' : 'grass'
-  }
+/** Surface from the circuit cross-section: road + kerbs, verge, then grass. */
+export function detectSurface(st) {
   const a = Math.abs(st.loc.lat)
-  return a < ROAD_HALF + 0.8 ? 'road' : a < ROAD_HALF + 4 ? 'runoff' : 'grass'
+  return a < KERB_OUT ? 'road' : a < VERGE_OUT ? 'runoff' : 'grass'
 }
 
 /**
@@ -101,17 +92,29 @@ export function stepKart(st, input, dt) {
   st.bump = Math.max(0, st.bump - dt)
 }
 
-/** Round posts (gantry legs, stand columns): push karts out of them. */
-export function collidePosts(st, posts) {
-  for (const p of posts) {
-    const dx = st.pos.x - p.x, dz = st.pos.z - p.z
-    const min = p.r + TUNING.radius
-    const d2 = dx * dx + dz * dz
-    if (d2 < min * min && d2 > 1e-6) {
-      const d = Math.sqrt(d2)
-      st.pos.x += (dx / d) * (min - d); st.pos.z += (dz / d) * (min - d)
-      st.speed *= 0.6; st.bump = 0.25
-    }
+/**
+ * Buildings, stands and gantry legs as oriented boxes on the ground plane.
+ * box = { x, z, cos, sin, hx, hz } (centre, rotation, half sizes).
+ */
+export function collideBoxes(st, boxes) {
+  const R = TUNING.radius
+  for (const b of boxes) {
+    const dx = st.pos.x - b.x, dz = st.pos.z - b.z
+    if (Math.abs(dx) > b.reach || Math.abs(dz) > b.reach) continue
+    // into the box's local frame
+    const lx = dx * b.cos + dz * b.sin, lz = -dx * b.sin + dz * b.cos
+    const cx = THREE.MathUtils.clamp(lx, -b.hx, b.hx), cz = THREE.MathUtils.clamp(lz, -b.hz, b.hz)
+    let nx = lx - cx, nz = lz - cz
+    let d = Math.hypot(nx, nz)
+    if (d >= R) continue
+    if (d < 1e-4) { // centre inside the box: push out through the nearest face
+      const px = b.hx - Math.abs(lx), pz = b.hz - Math.abs(lz)
+      if (px < pz) { nx = Math.sign(lx) || 1; nz = 0; d = -px } else { nx = 0; nz = Math.sign(lz) || 1; d = -pz }
+    } else { nx /= d; nz /= d }
+    const push = R - d
+    st.pos.x += (nx * b.cos - nz * b.sin) * push
+    st.pos.z += (nx * b.sin + nz * b.cos) * push
+    st.speed *= 0.6; st.bump = 0.25
   }
 }
 
