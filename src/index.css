@@ -1,0 +1,56 @@
+* { box-sizing: border-box; }
+html, body, #root { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #6fb2f2; }
+body { font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif; user-select: none; }
+
+.hud { position: fixed; inset: 0; pointer-events: none; color: #fff; }
+.hud .panel {
+  position: absolute; padding: 10px 16px; border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20, 40, 110, 0.72), rgba(10, 22, 70, 0.72));
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); font-weight: 800;
+}
+.hud .pos { left: 16px; top: 16px; font-size: 54px; line-height: 1; padding: 6px 16px 8px; }
+.hud .pos sup { font-size: 22px; margin-left: 2px; color: #ffd21f; }
+.hud .pos small { font-size: 20px; opacity: 0.75; margin-left: 4px; }
+.hud .lap { left: 16px; top: 96px; font-size: 18px; min-width: 190px; }
+.hud .lap div { display: flex; justify-content: space-between; gap: 16px; }
+.hud .lap span { font-size: 12px; letter-spacing: 2px; opacity: 0.8; align-self: center; }
+.hud .lap b { color: #ffd21f; font-variant-numeric: tabular-nums; }
+.hud .board { right: 16px; top: 16px; margin: 0; padding: 8px 14px; list-style: none; font-size: 14px; min-width: 150px; }
+.hud .board li { display: flex; align-items: center; gap: 8px; padding: 2px 0; opacity: 0.9; }
+.hud .board li.me { color: #ffd21f; opacity: 1; }
+.hud .board i, .results i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; display: inline-block; flex: none; }
+.hud .speed { right: 16px; bottom: 16px; font-size: 46px; line-height: 1; text-align: right; font-variant-numeric: tabular-nums; }
+.hud .speed small { display: block; font-size: 13px; letter-spacing: 2px; color: #ffd21f; }
+.hud .help { left: 50%; bottom: 16px; transform: translateX(-50%); font-size: 13px; font-weight: 600; white-space: nowrap; padding: 8px 14px; }
+.hud .toast { position: absolute; left: 50%; bottom: 70px; transform: translateX(-50%); font-size: 22px; font-weight: 900; text-shadow: 0 3px 0 rgba(0,0,0,.35); transition: opacity .2s; }
+.hud .big {
+  position: absolute; left: 50%; top: 30%; transform: translate(-50%, -50%);
+  font-size: 120px; font-weight: 900; color: #ffd21f; letter-spacing: 2px;
+  -webkit-text-stroke: 5px #0b1e5c; paint-order: stroke fill; text-shadow: 0 8px 0 rgba(0, 0, 0, 0.25);
+}
+.hud .big.pop { animation: pop 0.6s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes pop { from { transform: translate(-50%, -50%) scale(0.3); opacity: 0; } to { transform: translate(-50%, -50%) scale(1); opacity: 1; } }
+
+.results { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(8, 20, 60, 0.35); backdrop-filter: blur(3px); }
+.results .card { background: linear-gradient(180deg, #1d3c9e, #0d215e); color: #fff; border: 3px solid #fff; border-radius: 22px; padding: 24px 28px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 20px 50px rgba(0,0,0,.4); }
+.results h1 { margin: 0 0 14px; font-size: 32px; text-align: center; color: #ffd21f; text-shadow: 0 3px 0 rgba(0,0,0,.3); }
+.results ol { list-style: none; margin: 0 0 18px; padding: 0; }
+.results li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; font-weight: 700; }
+.results li:nth-child(odd) { background: rgba(255,255,255,.07); }
+.results li.me { background: rgba(255, 210, 31, .25); }
+.results li.wait { opacity: .6; }
+.results li .n { width: 22px; text-align: center; color: #ffd21f; }
+.results li b { margin-left: auto; font-variant-numeric: tabular-nums; }
+.results button { display: block; width: 100%; padding: 12px; font: inherit; font-size: 20px; font-weight: 900; color: #0b1e5c; background: #ffd21f; border: 0; border-radius: 12px; cursor: pointer; box-shadow: 0 4px 0 #b88f00; }
+.results button:active { transform: translateY(2px); box-shadow: 0 2px 0 #b88f00; }
+.loading { position: fixed; inset: 0; display: grid; place-items: center; color: #fff; font-size: 28px; font-weight: 800; text-shadow: 0 2px 0 #0b1e5c; background: linear-gradient(#2463d6, #6fb2f2); }
+
+@media (max-width: 700px) {
+  .hud .help, .hud .board { display: none; }
+  .hud .speed { font-size: 32px; }
+  .hud .pos { font-size: 40px; }
+  .hud .lap { top: 76px; min-width: 150px; font-size: 15px; }
+  .hud .big { font-size: 72px; }
+}
