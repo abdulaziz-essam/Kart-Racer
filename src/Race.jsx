@@ -8,6 +8,7 @@ import { createKartState } from './game/physics'
 import { pointAt, yawAt, LAP_LENGTH } from './game/path'
 import { useRaceLoop } from './hooks/useRaceLoop'
 import { RACERS, KENNEY_MODELS, GRID_ORDER, LINE_S, kenneyUrl, gridSlot } from './game/constants'
+import { getProfile, playerStats, paintColor } from './game/profile'
 
 export { LAPS, RACERS } from './game/constants'
 
@@ -21,10 +22,14 @@ export default function Race({ track, hud, onPhase, onFinish }) {
   const keys = useKeys()
   const sun = useRef()
 
-  const field = useMemo(() => RACERS.map((racerConfig, idx) => {
+  const field = useMemo(() => RACERS.map((baseConfig, idx) => {
+    // the player drives the car, paint and upgrades chosen in the paddock garage
+    const profile = getProfile()
+    const stats = baseConfig.player ? playerStats(profile) : null
+    const racerConfig = baseConfig.player ? { ...baseConfig, model: stats.model, paint: paintColor(profile) } : baseConfig
     const { s, lat } = gridSlot(GRID_ORDER.indexOf(idx))
     const pos = pointAt(s, lat)
-    const kartState = createKartState(pos, yawAt(s), { offset: s - LINE_S })
+    const kartState = createKartState(pos, yawAt(s), { offset: s - LINE_S, ...(stats && { speedMul: stats.speedMul, gripMul: stats.gripMul, accelMul: stats.accelMul, boostMul: stats.boostMul }) })
     if (kartState.offset > 0) kartState.offset -= LAP_LENGTH
     const kart = makeKenneyKart(kenneyModels[KENNEY_MODELS.indexOf(racerConfig.model)].scene, palette, racerConfig.paint)
     return { ...racerConfig, idx, st: kartState, kart, ai: racerConfig.player ? null : { lane: lat * 0.6, phase: idx * 1.7, skill: racerConfig.skill } }

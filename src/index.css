@@ -75,3 +75,26 @@ body { font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif; user-sele
 .intro .intro-h.small { font-size: 24px; }
 .intro .intro-key.big { font-size: 26px; }
 .intro .intro-tiny { font-size: 15px; opacity: 0.75; }
+
+/* ---------- first-person paddock ---------- */
+.hub-hud { position: fixed; inset: 0; pointer-events: none; color: #fff; }
+.hub-hud .panel { position: absolute; padding: 10px 16px; border-radius: 14px; background: linear-gradient(180deg, rgba(20, 40, 110, 0.72), rgba(10, 22, 70, 0.72)); border: 2px solid rgba(255, 255, 255, 0.85); font-weight: 800; text-shadow: 0 2px 0 rgba(0,0,0,.35); }
+.hub-hud .coins { right: 16px; top: 16px; font-size: 34px; line-height: 1; }
+.hub-hud .coins small { display: block; font-size: 12px; letter-spacing: 2px; color: #ffd21f; text-align: right; }
+.hub-hud .garage { left: 16px; top: 16px; font-size: 15px; min-width: 200px; }
+.hub-hud .garage div { display: flex; justify-content: space-between; gap: 14px; }
+.hub-hud .garage span { font-size: 11px; letter-spacing: 2px; opacity: .8; align-self: center; }
+.hub-hud .garage b { color: #ffd21f; text-transform: capitalize; }
+.hub-hud .crosshair { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0,0,0,.4); }
+.hub-hud .prompt { position: absolute; left: 50%; top: 58%; transform: translateX(-50%); padding: 10px 18px; border-radius: 12px; background: rgba(10, 22, 70, .78); border: 2px solid #ffd21f; font-weight: 800; font-size: 20px; white-space: nowrap; }
+.hub-hud .hub-toast { position: absolute; left: 50%; top: 20%; transform: translateX(-50%); padding: 12px 22px; border-radius: 14px; font-weight: 900; font-size: 26px; border: 3px solid #fff; }
+.hub-hud .hub-toast.good { background: #1fae4b; }
+.hub-hud .hub-toast.bad { background: #e3261c; }
+.hub-hud .hub-start { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8, 20, 60, .35); pointer-events: auto; }
+.hub-hud .hub-start .card { background: #fbf6ea; color: #2b2a33; border: 3px solid #2b2a33; border-radius: 18px; padding: 22px 28px; width: min(480px, calc(100vw - 32px)); font-family: 'Patrick Hand', 'Comic Sans MS', cursive; font-size: 20px; box-shadow: 6px 6px 0 #2b2a33; }
+.hub-hud .hub-start h2 { margin: 0 0 6px; font-family: 'Permanent Marker', 'Comic Sans MS', cursive; font-size: 40px; }
+.hub-hud .hub-start ul { margin: 8px 0; padding-left: 20px; }
+.hub-hud .hub-start .keys { font-size: 17px; opacity: .8; }
+.hub-hud .hub-start button { width: 100%; margin-top: 8px; padding: 12px; font: inherit; font-family: 'Permanent Marker', 'Comic Sans MS', cursive; font-size: 24px; color: #2b2a33; background: #ffd21f; border: 3px solid #2b2a33; border-radius: 12px; cursor: pointer; box-shadow: 3px 3px 0 #2b2a33; }
+@media (max-width: 700px) { .hub-hud .garage { display: none; } .hub-hud .prompt { font-size: 15px; white-space: normal; width: 90vw; text-align: center; } }
+.hub-hud .coin { display: inline-block; width: 26px; height: 26px; margin-right: 8px; vertical-align: -3px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3a8, #ffcf3a 45%, #c8901a); border: 2px solid #8a5a10; }

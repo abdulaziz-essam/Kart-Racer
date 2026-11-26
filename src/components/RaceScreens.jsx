@@ -61,7 +61,7 @@ export function TrackCard({ raceIndex, standings, ready, onGo }) {
 }
 
 /* ---------------- after each race ---------------- */
-export function StandingsScreen({ raceIndex, result, standings, onNext }) {
+export function StandingsScreen({ raceIndex, result, standings, coins = 0, onNext }) {
   const track = TRACKS[raceIndex]
   const last = raceIndex === TRACKS.length - 1
   const rows = sortedStandings(standings, RACERS, result)
@@ -90,7 +90,8 @@ export function StandingsScreen({ raceIndex, result, standings, onNext }) {
       ))}
       <text x={646} y={140} className="intro-h">Championship after race {raceIndex + 1}</text>
       <StandingsText rows={rows} box={box} />
-      <SketchButton x={375} y={596} w={450} h={74} label={last ? 'See the champion 🏆' : 'Next race ▶'} onClick={onNext} />
+      <SketchButton x={375} y={596} w={450} h={74} label={last ? 'See the champion 🏆' : 'To the paddock ▶'} onClick={onNext} />
+      <text x={W / 2} y={585} textAnchor="middle" className="intro-h small">+{coins} coins for your place: spend them in the paddock</text>
     </SketchScreen>
   )
 }

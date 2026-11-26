@@ -13,7 +13,7 @@ const wrap = (s) => ((s % LAP_LENGTH) + LAP_LENGTH) % LAP_LENGTH
 /* ---------- inflatable arch: half torus with candy stripes ---------- */
 function archGeometry(span, colors) {
   const geo = new THREE.TorusGeometry(span, 1.15, 14, 48, Math.PI).toNonIndexed()
-  const positions = propGeometries.attributes.position, colorBuffer = new Float32Array(positions.count * 3), tempColor = new THREE.Color()
+  const positions = geo.attributes.position, colorBuffer = new Float32Array(positions.count * 3), tempColor = new THREE.Color()
   for (let i = 0; i < positions.count; i += 3) {
     // stripe by angle around the arch, using the triangle's centre
     const cx = (positions.getX(i) + positions.getX(i + 1) + positions.getX(i + 2)) / 3
@@ -22,8 +22,8 @@ function archGeometry(span, colors) {
     tempColor.set(colors[Math.floor((angle / Math.PI) * 9) % colors.length])
     for (let v = 0; v < 3; v++) colorBuffer.set([tempColor.r, tempColor.g, tempColor.b], (i + v) * 3)
   }
-  propGeometries.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
-  propGeometries.computeVertexNormals()
+  geo.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
+  geo.computeVertexNormals()
   return geo
 }
 
@@ -45,8 +45,8 @@ function chevronTexture() {
 /* ---------- striped tent canopy ---------- */
 function tentGeometry(colorA, colorB) {
   const geo = new THREE.ConeGeometry(3.4, 2.2, 12, 1).toNonIndexed()
-  propGeometries.translate(0, 3.6, 0)
-  const positions = propGeometries.attributes.position, colorBuffer = new Float32Array(positions.count * 3)
+  geo.translate(0, 3.6, 0)
+  const positions = geo.attributes.position, colorBuffer = new Float32Array(positions.count * 3)
   const colA = new THREE.Color(colorA), colB = new THREE.Color(colorB)
   for (let i = 0; i < positions.count; i += 3) {
     const cx = (positions.getX(i) + positions.getX(i + 1) + positions.getX(i + 2)) / 3
@@ -55,8 +55,8 @@ function tentGeometry(colorA, colorB) {
     const stripeColor = segment % 2 ? colA : colB
     for (let v = 0; v < 3; v++) colorBuffer.set([stripeColor.r, stripeColor.g, stripeColor.b], (i + v) * 3)
   }
-  propGeometries.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
-  propGeometries.computeVertexNormals()
+  geo.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
+  geo.computeVertexNormals()
   return geo
 }
 

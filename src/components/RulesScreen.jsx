@@ -68,7 +68,8 @@ export default function RulesScreen({ onNext }) {
           </g>
         )
       })}
-      <text x={W / 2} y={560} textAnchor="middle" className="intro-small">Tip: hold SPACE in corners to drift, let go for a speed boost!</text>
+      <text x={W / 2} y={548} textAnchor="middle" className="intro-small">Races also pay coins: spend them in the paddock on cars, paint and upgrades.</text>
+      <text x={W / 2} y={574} textAnchor="middle" className="intro-small">Tip: hold SPACE in corners to drift, let go for a speed boost!</text>
       <SketchButton x={375} y={596} w={450} h={74} label="Got it ▶" onClick={onNext} />
     </SketchScreen>
   )

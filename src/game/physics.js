@@ -37,13 +37,14 @@ export function stepKart(st, input, dt) {
   const surf = TUNING[st.surface]
   // drift boost: hold a drift for 0.8 s, release for a short burst of speed
   if (st.drifting) st.driftTime = (st.driftTime || 0) + dt
-  else if (st.driftTime) { if (st.driftTime > 0.8) st.boost = Math.min(1.4, 0.5 + st.driftTime * 0.5); st.driftTime = 0 }
+  else if (st.driftTime) { if (st.driftTime > 0.8) st.boost = Math.min(1.4, 0.5 + st.driftTime * 0.5) * (st.boostMul ?? 1); st.driftTime = 0 }
   st.boost = Math.max(0, (st.boost || 0) - dt)
   const boosting = st.boost > 0
-  const maxSpeed = surf.max * st.maxMul * (boosting ? 1.3 : 1)
+  // per-kart car stats / upgrades (player garage); AI karts use 1
+  const maxSpeed = surf.max * st.maxMul * (st.speedMul ?? 1) * (boosting ? 1.3 : 1)
   if (boosting && st.speed > 0) st.speed += 12 * dt
 
-  if (input.up) st.speed += (st.speed < 0 ? TUNING.brake : TUNING.accel) * dt
+  if (input.up) st.speed += (st.speed < 0 ? TUNING.brake : TUNING.accel * (st.accelMul ?? 1)) * dt
   else if (input.down) st.speed -= (st.speed > 0 ? TUNING.brake : TUNING.accel) * dt
   else st.speed -= Math.sign(st.speed) * Math.min(Math.abs(st.speed), (TUNING.drag + Math.abs(st.speed) * 0.25) * dt)
   if (st.speed > maxSpeed) st.speed = THREE.MathUtils.damp(st.speed, maxSpeed, 3, dt)
@@ -53,10 +54,10 @@ export function stepKart(st, input, dt) {
   st.steer = THREE.MathUtils.damp(st.steer, target, 10, dt)
   const drifting = input.drift && Math.abs(st.speed) > 8
   const speedFactor = Math.min(Math.abs(st.speed) / 8, 1) * (st.speed < 0 ? -1 : 1)
-  st.yaw += st.steer * (drifting ? T.driftSteer : T.steer) * speedFactor * dt
+  st.yaw += st.steer * (drifting ? TUNING.driftSteer : TUNING.steer) * speedFactor * dt
   let d = st.yaw - st.velYaw
   d = Math.atan2(Math.sin(d), Math.cos(d))
-  st.velYaw += d * Math.min(1, (drifting ? TUNING.driftGrip : surf.grip) * dt)
+  st.velYaw += d * Math.min(1, (drifting ? TUNING.driftGrip : surf.grip * (st.gripMul ?? 1)) * dt)
   st.drifting = drifting
 
   st.pos.x += Math.cos(st.velYaw) * st.speed * dt

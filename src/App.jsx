@@ -14,23 +14,31 @@ import Hud from './components/Hud'
 import StudioEnvironment from './components/StudioEnvironment'
 import { setTrack } from './game/path'
 import { TRACKS, raceOrder, addRace } from './game/grandprix'
+import { RACE_PAYOUT, addCoins } from './game/profile'
+import HubWorld from './hub/HubWorld'
+import HubHud from './hub/HubHud'
 
 // Grand Prix flow:
-//   intro -> rules -> card (race N) -> race -> standings -> card (N+1) ... -> final
+//   intro -> rules -> hub -> (Race Gate) card (race N) -> race -> standings (+coins)
+//   -> hub -> card (N+1) ... -> final -> hub
+// The hub is a first-person paddock where race coins buy cars, paint and upgrades.
 // The hand-drawn screens (rough.js) sit on top of the 3D canvas; the next
 // track is built behind the card screen while you read it.
 
 // Dev shortcut: ?race=3 opens the card for race 3 (handy for checking tracks)
 const DEV_RACE = import.meta.env.DEV ? Number(new URLSearchParams(window.location.search).get('race')) || 0 : 0
+// Dev shortcut: ?hub=1 opens the paddock
+const DEV_HUB = import.meta.env.DEV && new URLSearchParams(window.location.search).has('hub')
 
 export default function App() {
   const hud = useRef({})
-  const [screen, setScreen] = useState(DEV_RACE ? 'card' : 'intro')
+  const [screen, setScreen] = useState(DEV_HUB ? 'hub' : DEV_RACE ? 'card' : 'intro')
   const [raceIndex, setRaceIndex] = useState(Math.max(0, DEV_RACE - 1))
   const [loadedTrack, setLoadedTrack] = useState(null)
   const [phase, setPhase] = useState('loading')
   const [standings, setStandings] = useState({})
   const [lastResult, setLastResult] = useState([])
+  const [lastCoins, setLastCoins] = useState(0)
   const [attempt, setAttempt] = useState(0) // remounts the track for a new Grand Prix
   const finishedRef = useRef(false)
 
@@ -47,6 +55,8 @@ export default function App() {
     const result = raceOrder(field).map((k) => ({ name: k.name, player: !!k.player, paint: k.paint, time: k.st.finished ? k.st.finishTime : null }))
     setLastResult(result)
     setStandings((prevStandings) => addRace(prevStandings, result))
+    const coins = RACE_PAYOUT[result.findIndex((r) => r.player)] ?? 0
+    addCoins(coins); setLastCoins(coins)
     setTimeout(() => setScreen('standings'), 2500) // let the finish sink in first
   }, [])
 
@@ -54,13 +64,16 @@ export default function App() {
   const nextRace = useCallback(() => {
     if (raceIndex + 1 >= TRACKS.length) { setScreen('final'); return }
     setRaceIndex((i) => i + 1)
-    setScreen('card')
+    setScreen('hub') // spend the coins before the next race
   }, [raceIndex])
   const restart = useCallback(() => {
     setStandings({}); setLastResult([])
     setRaceIndex(0); setAttempt((n) => n + 1)
-    setScreen('card')
+    setScreen('hub')
   }, [])
+  const toGate = useCallback(() => setScreen('card'), [])
+  const raceLabel = `Race ${raceIndex + 1}: ${TRACKS[raceIndex].name}`
+  const inHub = screen === 'hub'
 
   return (
     <>
@@ -76,8 +89,12 @@ export default function App() {
         <SkyDome />
         <StudioEnvironment />
         <Suspense fallback={null}>
-          <Track key={`track-${trackKey}`} onReady={onTrack} />
-          {ready && <Scenery key={`scenery-${trackKey}`} trees={loadedTrack.trees} />}
+          {/* the circuit keeps building (hidden) while you're in the paddock */}
+          <group visible={!inHub}>
+            <Track key={`track-${trackKey}`} onReady={onTrack} />
+            {ready && <Scenery key={`scenery-${trackKey}`} trees={loadedTrack.trees} />}
+          </group>
+          {inHub && <HubWorld onRaceGate={toGate} raceLabel={raceLabel} />}
           {ready && screen === 'race' && <Race key={`race-${trackKey}`} track={loadedTrack} hud={hud} onPhase={setPhase} onFinish={onFinish} />}
         </Suspense>
         <EffectComposer multisampling={0} enableNormalPass={false}>
@@ -92,9 +109,10 @@ export default function App() {
       </Canvas>
       {screen === 'race' && <Hud hud={hud} phase={phase} race={`${raceIndex + 1}/${TRACKS.length}`} />}
       {screen === 'intro' && <IntroScreen ready={ready} onStart={() => setScreen('rules')} />}
-      {screen === 'rules' && <RulesScreen onNext={() => setScreen('card')} />}
+      {screen === 'rules' && <RulesScreen onNext={() => setScreen('hub')} />}
+      {inHub && <HubHud raceLabel={raceLabel} />}
       {screen === 'card' && <TrackCard raceIndex={raceIndex} standings={standings} ready={ready} onGo={goRace} />}
-      {screen === 'standings' && <StandingsScreen raceIndex={raceIndex} result={lastResult} standings={standings} onNext={nextRace} />}
+      {screen === 'standings' && <StandingsScreen raceIndex={raceIndex} result={lastResult} standings={standings} coins={lastCoins} onNext={nextRace} />}
       {screen === 'final' && <FinalScreen standings={standings} lastResult={lastResult} onRestart={restart} />}
     </>
   )
