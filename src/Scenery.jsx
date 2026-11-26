@@ -3,7 +3,7 @@ import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
 import { heightAt, terrainInfo, WATER_LEVEL } from './game/terrain'
-import { locate, pointAt, curvatureAt, LAP_LENGTH, VERGE_OUT } from './game/path'
+import { locate, pointAt, curvatureAt, LAP_LENGTH, VERGE_OUT, KERB_OUT, offRoad } from './game/path'
 
 const EDGE = VERGE_OUT // outer edge of the striped verge
 
@@ -130,6 +130,11 @@ function useLayout(blenderTrees) {
       const cx = T.centre.x + Math.cos(a) * R, cz = T.centre.z + Math.sin(a) * R
       for (let p = 0; p < 6; p++) out.cloud.push([cx + (r() - 0.5) * 60, y + r() * 10, cz + (r() - 0.5) * 25, 12 + r() * 14])
     }
+    // tight layouts loop back on themselves: nothing may sit on another stretch of road
+    for (const key of ['bush', 'tuft', 'flower', 'tire', 'flag']) {
+      const min = key === 'tuft' || key === 'flower' ? KERB_OUT + 0.5 : KERB_OUT + 2
+      out[key] = out[key].filter(([x, z]) => offRoad(x, z, min))
+    }
     return out
   }, [blenderTrees])
 }
@@ -151,10 +156,7 @@ function Instances({ geometry, material, items, place, color, castShadow = true,
   return <instancedMesh ref={ref} args={[geometry, material, items.length]} castShadow={castShadow} receiveShadow={receiveShadow} />
 }
 
-// Places an instance on the terrain surface at the given (x, z) position
 const placeOnGround = (obj, [x, z, scale, rotation]) => { obj.position.set(x, heightAt(x, z) - 0.05, z); obj.scale.setScalar(scale); obj.rotation.set(0, rotation, 0) }
-
-// Returns a per-instance color function that varies hue around a base value
 const makeLeafColorFn = (baseHue, hueSpread) => (color, item, index) => color.setHSL(baseHue + ((index * 0.618) % 1) * hueSpread, 0.62, 0.36 + ((index * 0.37) % 1) * 0.12)
 
 export default function Scenery({ trees }) {

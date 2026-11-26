@@ -7,8 +7,8 @@ import { pointAt, yawAt, LAP_LENGTH } from '../game/path'
 import { SUN_DIR } from '../SkyDome'
 import { LAPS, COUNTDOWN } from '../game/constants'
 
-const scratchVec = new THREE.Vector3()     // reusable scratch vector (avoids per-frame allocation)
-const behindVec = new THREE.Vector3()      // direction from player toward camera (behind kart)
+const scratchVec = new THREE.Vector3()
+const behindVec = new THREE.Vector3()
 const cameraTargetPos = new THREE.Vector3()
 const UP = new THREE.Vector3(0, 1, 0)
 
@@ -17,6 +17,7 @@ const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 
 export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish }) {
   const camera = useThree((s) => s.camera)
   const race = useRef({ t: 0, phase: 'countdown', lights: -1, results: [], hudT: 0, lapStart: 0, lastLap: 1, best: null, lapTimes: [] })
+  const finishOrderCache = useRef([...field])
 
   useEffect(() => {
     const playerKartState = field.find((k) => k.player).st
@@ -78,12 +79,6 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
         else if (playerKart.finished) onFinish?.(raceState.results.slice(), field)
       }
     }
-    const finishOrder = [...field].sort((a, b) => {
-      if (a.st.finished && b.st.finished) return a.st.finishTime - b.st.finishTime
-      if (a.st.finished !== b.st.finished) return a.st.finished ? -1 : 1
-      return b.st.progress - a.st.progress
-    })
-    const playerPlace = finishOrder.indexOf(player) + 1
     const currentLap = Math.min(LAPS, Math.max(1, Math.floor(playerKart.progress / LAP_LENGTH) + 1))
     if (racing && !playerKart.finished && currentLap !== raceState.lastLap) {
       const lapTime = raceState.t - raceState.lapStart
@@ -98,7 +93,7 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
       const { st: kartState, kart } = racer
       kart.root.position.set(kartState.pos.x, 0, kartState.pos.z)
       kart.root.rotation.y = kartState.yaw
-      const speedNorm = Math.min(Math.abs(kartState.speed) / 10, 1)              // 0–1, for bobbing intensity
+      const speedNorm = Math.min(Math.abs(kartState.speed) / 10, 1)
       const speedSigned = Math.min(Math.abs(kartState.speed) / 8, 1) * (kartState.speed < 0 ? -1 : 1)
       kart.body.position.y = Math.sin(elapsed * 18 + racer.idx) * 0.012 * speedNorm
         + (kartState.surface === 'grass' ? Math.sin(elapsed * 40 + racer.idx) * 0.02 * speedNorm : 0)
@@ -133,6 +128,12 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
     const hudElements = hud.current
     if (hudElements.speed && raceState.hudT > 0.06) {
       raceState.hudT = 0
+      finishOrderCache.current = [...field].sort((a, b) => {
+        if (a.st.finished && b.st.finished) return a.st.finishTime - b.st.finishTime
+        if (a.st.finished !== b.st.finished) return a.st.finished ? -1 : 1
+        return b.st.progress - a.st.progress
+      })
+      const playerPlace = finishOrderCache.current.indexOf(player) + 1
       hudElements.speed.textContent = Math.round(Math.abs(playerKart.speed) * 3.6)
       hudElements.pos.innerHTML = `${playerPlace}<sup>${ordinal(playerPlace).slice(String(playerPlace).length)}</sup><small>/${field.length}</small>`
       hudElements.lap.textContent = `${currentLap}/${LAPS}`
@@ -146,7 +147,7 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
       else if (raceState.t - raceState.raceStart < 1) bigMessage = 'GO!'
       else if (raceState.flash && raceState.t < raceState.flash.until) bigMessage = raceState.flash.text
       if (hudElements.big.textContent !== bigMessage) { hudElements.big.textContent = bigMessage; hudElements.big.classList.remove('pop'); void hudElements.big.offsetWidth; if (bigMessage) hudElements.big.classList.add('pop') }
-      hudElements.board.innerHTML = finishOrder.map((racer, i) => `<li class="${racer.player ? 'me' : ''}"><i style="background:${racer.paint || '#1239d6'}"></i>${i + 1}. ${racer.name}</li>`).join('')
+      hudElements.board.innerHTML = finishOrderCache.current.map((racer, i) => `<li class="${racer.player ? 'me' : ''}"><i style="background:${racer.paint || '#1239d6'}"></i>${i + 1}. ${racer.name}</li>`).join('')
     }
   })
 }

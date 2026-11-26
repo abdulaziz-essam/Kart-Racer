@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { useLayoutEffect, useMemo, useRef } from 'react'
-import { pointAt, yawAt, curvatureAt, LAP_LENGTH, ROAD_HALF, VERGE_OUT, lapGap } from './game/path'
+import { pointAt, yawAt, curvatureAt, LAP_LENGTH, ROAD_HALF, VERGE_OUT, KERB_OUT, lapGap, offRoad } from './game/path'
 import { LINE_S } from './game/constants'
 import { heightAt } from './game/terrain'
 
@@ -99,18 +99,22 @@ export default function Props() {
       const side = -Math.sign(c) // outside of the corner
       const p = pointAt(s, side * (VERGE_OUT + 2.5))
       if (lapGap(s, LINE_S) < 60) continue
+      if (!offRoad(p.x, p.z, KERB_OUT + 1.5)) continue // another stretch of road is right there
       boards.push({ x: p.x, z: p.z, yaw: yawAt(s), left: c > 0 })
     }
+    const boardsLeft = boards.filter((b) => b.left)
+    const boardsRight = boards.filter((b) => !b.left)
 
     // ---- tents and barrels: a paddock village by the start, plus a few fan camps ----
     const tents = [], barrels = []
     const camp = (s0, side, n) => {
       for (let i = 0; i < n; i++) {
         const s = s0 + i * 11, p = pointAt(s, side * (VERGE_OUT + 10 + (i % 2) * 8))
-        tents.push({ x: p.x, z: p.z, kind: i % 3 })
+        // tight layouts loop back on themselves: skip spots that land on another stretch of road
+        if (offRoad(p.x, p.z, KERB_OUT + 5)) tents.push({ x: p.x, z: p.z, kind: i % 3 })
         for (let b = 0; b < 3; b++) {
           const q = pointAt(s + 4 + b * 1.1, side * (VERGE_OUT + 6.5))
-          barrels.push({ x: q.x, z: q.z, c: PALETTE[(i + b) % 6] })
+          if (offRoad(q.x, q.z, KERB_OUT + 2)) barrels.push({ x: q.x, z: q.z, c: PALETTE[(i + b) % 6] })
         }
       }
     }
@@ -124,9 +128,9 @@ export default function Props() {
       const c = curvatureAt(s)
       if (Math.abs(c) < 0.005 || Math.abs(c) > 0.009) continue
       const p = pointAt(s, -Math.sign(c) * (VERGE_OUT + 1.8))
-      hay.push({ x: p.x, z: p.z, yaw: yawAt(s) })
+      if (offRoad(p.x, p.z, KERB_OUT + 1.5)) hay.push({ x: p.x, z: p.z, yaw: yawAt(s) })
     }
-    return { arches, boards, tents, barrels, hay }
+    return { arches, boards, boardsLeft, boardsRight, tents, barrels, hay }
   }, [])
 
   const mats = useMemo(() => {
@@ -181,8 +185,8 @@ export default function Props() {
           <mesh geometry={geo.archFoot} material={mats.archFoot} position={[-(ROAD_HALF + 3.2), 0, 0]} />
         </group>
       ))}
-      <Instanced geometry={geo.board} material={mats.boardL} items={data.boards.filter((b) => b.left)} place={placeFns.board} />
-      <Instanced geometry={geo.board} material={mats.boardR} items={data.boards.filter((b) => !b.left)} place={placeFns.board} />
+      <Instanced geometry={geo.board} material={mats.boardL} items={data.boardsLeft} place={placeFns.board} />
+      <Instanced geometry={geo.board} material={mats.boardR} items={data.boardsRight} place={placeFns.board} />
       <Instanced geometry={geo.boardPost} material={mats.post} items={data.boards} place={placeFns.post(1)} castShadow={false} />
       <Instanced geometry={geo.boardPost} material={mats.post} items={data.boards} place={placeFns.post(-1)} castShadow={false} />
       {geo.tents.map((tentGeo, k) => (
