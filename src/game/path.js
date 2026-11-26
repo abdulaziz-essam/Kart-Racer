@@ -22,6 +22,12 @@ export function setTrack(data) {
 }
 setTrack(firstTrack)
 
+const offLoc = {}
+/** True if (x, z) is at least `min` metres from every stretch of the racing line. */
+export function offRoad(x, z, min) {
+  return Math.abs(locate(x, z, -1, offLoc).lat) >= min
+}
+
 /** Shortest distance between two lap positions (handles the wrap at the line). */
 export function lapGap(a, b) {
   const d = Math.abs(a - b) % LAP_LENGTH

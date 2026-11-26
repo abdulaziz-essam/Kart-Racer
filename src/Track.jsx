@@ -10,7 +10,7 @@ import Props from './Props'
 // Everything about a circuit is generated from its racing line (a few KB of
 // JSON per track), so nothing heavy is downloaded per race: road and kerbs
 // (TrackSurface), landscape (Terrain), trackside props (Props) and the start
-// area startArea here (gantry with start lights, grandstand, balloons, bunting).
+// area built here (gantry with start lights, grandstand, balloons, bunting).
 
 const POST_LAT = ROAD_HALF + 3.5
 const PALETTE = ['#ff4b3a', '#ffc21f', '#2f7bff', '#26c26b', '#b04cff', '#ff7a1a']
