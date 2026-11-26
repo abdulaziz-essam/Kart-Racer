@@ -63,6 +63,7 @@ function tentGeometry(colorA, colorB) {
 function Instanced({ geometry, material, items, place, color, castShadow = true }) {
   const ref = useRef()
   useLayoutEffect(() => {
+    if (!ref.current) return // empty list on this track
     const o = new THREE.Object3D(), c = new THREE.Color()
     items.forEach((it, i) => {
       o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1)
@@ -85,6 +86,8 @@ export default function Props() {
       let s = wrap(LINE_S + frac * LAP_LENGTH)
       // slide forward to a straight bit
       for (let k = 0; k < 40 && Math.abs(curvatureAt(s)) > 0.004; k++) s = wrap(s + 8)
+      // keep clear of the start gantry/grid and of the previous arch
+      if (lapGap(s, LINE_S) < 70 || arches.some((a) => lapGap(a.s, s) < 90)) continue
       arches.push({ s, colors: [PALETTE[arches.length % 6], '#ffffff', PALETTE[(arches.length + 2) % 6]] })
     }
 

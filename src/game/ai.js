@@ -26,7 +26,7 @@ export function aiInput(st, driver, playerRaceDist, t) {
 
   // corner speed: slow down for sharp bends further ahead
   const sharp = Math.abs(curvatureAt(st.loc.dist + 10 + speed * 1.1, 16))
-  const cornerMax = THREE.MathUtils.clamp(30 - sharp * 900, 13, 30)
+  const cornerMax = THREE.MathUtils.clamp(30 - sharp * 560, 17, 30) // karts grip hard: only slow for real hairpins
 
   // rubber band relative to the player
   const gap = st.raceDist - playerRaceDist

@@ -137,6 +137,7 @@ function useLayout(blenderTrees) {
 function Instances({ geometry, material, items, place, color, castShadow = true, receiveShadow = true }) {
   const ref = useRef()
   useLayoutEffect(() => {
+    if (!ref.current) return // nothing to place (e.g. no tight corners on this track)
     const m = new THREE.Object3D(), c = new THREE.Color()
     items.forEach((it, i) => {
       place(m, it); m.updateMatrix(); ref.current.setMatrixAt(i, m.matrix)

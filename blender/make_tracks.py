@@ -20,19 +20,47 @@ STEP = 5.0
 
 # existing circuit from the original F1 Blender layout (scaled to a ~1 km kart lap)
 with open(os.path.join(PROJECT, 'src', 'trackPath.json')) as f:
-    meadow = [(x * 0.9, -z * 0.9) for x, z in json.load(f)['points']]  # back to blender x, y
+    meadow = [(x * 0.58, -z * 0.58) for x, z in json.load(f)['points']]  # back to blender x, y
+
+def horseshoe(r_out=85.0, r_in=40.0, span_deg=130.0, step=2.0):
+    """U-shaped band: outer sweep, hairpin, inner sweep back, hairpin. Opens to -x."""
+    span = math.radians(span_deg); pts = []
+    def arc(cx, cy, r, a0, a1):
+        n = max(2, int(abs(a1 - a0) * r / step))
+        return [(cx + r * math.cos(a0 + (a1 - a0) * k / n), cy + r * math.sin(a0 + (a1 - a0) * k / n)) for k in range(n)]
+    pts += arc(0, 0, r_out, -span, span)                       # outer sweep (via +x)
+    rm, rh = (r_out + r_in) / 2, (r_out - r_in) / 2
+    pts += arc(rm * math.cos(span), rm * math.sin(span), rh, span, span + math.pi)   # hairpin at the top tip
+    pts += arc(0, 0, r_in, span, -span)                         # inner sweep back
+    pts += arc(rm * math.cos(-span), rm * math.sin(-span), rh, -span + math.pi, -span + 2 * math.pi)  # bottom hairpin
+    return pts
+
+
+def serpentine(length=250.0, wave=125.0, amp=17.0, gap=46.0, step=2.0):
+    """Two parallel S-wave roads joined by hairpins: left-right-left all the way."""
+    n = int(length / step); up, down = [], []
+    for k in range(n + 1):
+        y = length * k / n
+        # the envelope eases each wave into the hairpins (no kink where they meet)
+        x = amp * math.sin(2 * math.pi * y / wave) * math.sin(math.pi * y / length)
+        up.append((x, y)); down.append((x + gap, y))
+    r = gap / 2
+    top = [(up[-1][0] + r - r * math.cos(math.pi * k / 30), length + r * math.sin(math.pi * k / 30)) for k in range(1, 30)]
+    bot = [(down[0][0] - r + r * math.cos(math.pi * k / 30), -r * math.sin(math.pi * k / 30)) for k in range(1, 30)]
+    return up + top + down[::-1] + bot
+
 
 TRACKS = [
+    # the original circuit from the first F1 Blender scene: classic flowing kidney
     dict(id='sunny-meadow', name='Sunny Meadow', theme='meadow', dense=meadow),
-    dict(id='lakeside-loop', name='Lakeside Loop', theme='lake', scale=0.64, ctrl=[
-        (0, 0), (220, -30), (370, 10), (430, 130), (370, 240), (230, 250), (140, 180),
-        (40, 220), (-80, 300), (-230, 260), (-300, 140), (-250, 30), (-130, -20)]),
-    dict(id='twisty-hills', name='Twisty Hills', theme='hills', scale=0.64, ctrl=[
-        (0, 0), (170, -10), (285, 55), (255, 165), (330, 255), (275, 365), (120, 370),
-        (40, 270), (-80, 300), (-215, 260), (-300, 150), (-245, 40), (-125, 35)]),
-    dict(id='canyon-sprint', name='Canyon Sprint', theme='canyon', scale=0.55, ctrl=[
-        (-320, 0), (-60, -70), (230, -50), (420, 60), (440, 200), (320, 290), (170, 250),
-        (80, 170), (-30, 230), (-200, 300), (-380, 250), (-450, 120)]),
+    # horseshoe wrapping a lake that sits in its open mouth
+    dict(id='lakeside-loop', name='Lakeside Loop', theme='lake', dense=horseshoe(), lake=(-125.0, 0.0, 45.0)),
+    # serpentine: continuous switchbacks
+    dict(id='twisty-hills', name='Twisty Hills', theme='hills', dense=serpentine()),
+    # long straight -> hairpin -> chicane -> fast sweeper back
+    dict(id='canyon-sprint', name='Canyon Sprint', theme='canyon', scale=0.86, ctrl=[
+        (0, 0), (250, 0), (300, 10), (322, 42), (304, 72), (262, 76), (226, 58), (190, 80), (152, 104),
+        (100, 96), (48, 118), (2, 122), (-40, 96), (-48, 46), (-26, 12)]),
 ]
 
 
@@ -67,6 +95,30 @@ def resample(pts, step):
         a, b = loop[i], loop[i + 1]
         out.append((a[0] + (b[0] - a[0]) * w, a[1] + (b[1] - a[1]) * w))
     return out, total
+
+
+def round_tight_corners(pts, min_r, max_iter=60):
+    """Smooth only the corners tighter than min_r (local Laplacian), keeping the rest of the shape."""
+    n = len(pts)
+    for _ in range(max_iter):
+        tight = [i for i in range(n) if local_radius(pts, i) < min_r]
+        if not tight: break
+        new = list(pts)
+        for i in tight:
+            for k in range(-3, 4):  # soften a short stretch around the tight spot
+                j = (i + k) % n
+                a, b, c = pts[j - 1], pts[j], pts[(j + 1) % n]
+                new[j] = (b[0] * 0.5 + (a[0] + c[0]) * 0.25, b[1] * 0.5 + (a[1] + c[1]) * 0.25)
+        pts = new
+    return pts
+
+
+def local_radius(pts, i):
+    n = len(pts)
+    a, b, c = pts[i - 2], pts[i], pts[(i + 2) % n]
+    ab, bc, ca = math.dist(a, b), math.dist(b, c), math.dist(c, a)
+    area2 = abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
+    return ab * bc * ca / (2 * area2) if area2 > 1e-6 else 1e9
 
 
 def min_radius(pts):
@@ -120,7 +172,8 @@ summary = []
 for ti, t in enumerate(TRACKS):
     k = t.get('scale', 1.0)  # shrink the hand-placed layout to a ~1-1.2 km lap
     dense = t['dense'] if 'dense' in t else catmull_rom([(x * k, y * k) for x, y in t['ctrl']])
-    pts, length = resample(dense, STEP)
+    pts, _ = resample(dense, STEP)
+    pts, length = resample(round_tight_corners(pts, MIN_RADIUS + 2), STEP)  # small tracks: round off hairpins
     radius = min_radius(pts)
     overlap = crosses(pts, ROAD_HALF * 2 + 12)
     start = straightest_start(pts)
@@ -181,10 +234,30 @@ for ti, t in enumerate(TRACKS):
         'length': round(length, 1), 'startS': 0,
         'points': [[round(p[0], 2), round(-p[1], 2)] for p in pts],
     }
+    if 'lake' in t:
+        lx, ly, lr = t['lake']
+        data['lake'] = {'x': lx, 'z': -ly, 'r': lr}
     path = os.path.join(OUT_JSON, t['id'] + '.json')
     with open(path, 'w') as f: json.dump(data, f, separators=(',', ':'))
     summary.append(f"{t['name']:<14} {length:7.0f} m  min radius {radius:5.1f} m  overlap={overlap}  {os.path.getsize(path)//1024} KB")
 
 bpy.ops.wm.save_as_mainfile(filepath=OUT_BLEND)
+
+# quick visual check: the four layouts side by side
+svg = ['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" style="background:#f6efdc">']
+for ti, t in enumerate(TRACKS):
+    with open(os.path.join(OUT_JSON, t['id'] + '.json')) as f: d = json.load(f)
+    xs = [p[0] for p in d['points']]; zs = [p[1] for p in d['points']]
+    sc = min(340 / (max(xs) - min(xs)), 340 / (max(zs) - min(zs)))
+    ox, oz = 30 + ti * 400 - min(xs) * sc, 40 - min(zs) * sc
+    path = ' '.join(f"{ox + x * sc:.1f},{oz + z * sc:.1f}" for x, z in d['points'])
+    if 'lake' in d:
+        L = d['lake']; svg.append(f'<circle cx="{ox + L["x"] * sc:.1f}" cy="{oz + L["z"] * sc:.1f}" r="{L["r"] * sc:.1f}" fill="#7fb8e6"/>')
+    svg.append(f'<polygon points="{path}" fill="none" stroke="#333" stroke-width="{13 * sc:.1f}" stroke-linejoin="round"/>')
+    x0, z0 = d['points'][0]
+    svg.append(f'<circle cx="{ox + x0 * sc:.1f}" cy="{oz + z0 * sc:.1f}" r="7" fill="#e3261c"/>')
+    svg.append(f'<text x="{30 + ti * 400 + 170}" y="410" text-anchor="middle" font-family="sans-serif" font-size="20">{d["name"]} - {d["length"]:.0f} m</text>')
+svg.append('</svg>')
+with open(os.path.join(PROJECT, 'blender', 'tracks_preview.svg'), 'w') as f: f.write('\n'.join(svg))
 print('\n'.join(summary))
 print('saved', OUT_BLEND)

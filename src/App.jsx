@@ -76,9 +76,9 @@ export default function App() {
         <SkyDome />
         <StudioEnvironment />
         <Suspense fallback={null}>
-          <Track key={trackKey} onReady={onTrack} />
-          {ready && <Scenery key={trackKey} trees={built.trees} />}
-          {ready && screen === 'race' && <Race key={trackKey} track={built} hud={hud} onPhase={setPhase} onFinish={onFinish} />}
+          <Track key={`track-${trackKey}`} onReady={onTrack} />
+          {ready && <Scenery key={`scenery-${trackKey}`} trees={built.trees} />}
+          {ready && screen === 'race' && <Race key={`race-${trackKey}`} track={built} hud={hud} onPhase={setPhase} onFinish={onFinish} />}
         </Suspense>
         <EffectComposer multisampling={0} enableNormalPass={false}>
           <N8AO aoRadius={1.6} distanceFalloff={1.2} intensity={2.2} color="#20263a" halfRes quality="medium" />

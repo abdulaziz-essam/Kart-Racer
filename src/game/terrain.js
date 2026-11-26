@@ -26,8 +26,9 @@ export function terrainInfo() {
   const start = pointAt(0)
   // lake in the infield: the biggest open circle inside the loop, clear of the road
   const theme = currentTheme()
-  let lake = null
-  if (theme.lake) {
+  // a lake placed in Blender (track JSON) wins; otherwise find room in the infield
+  let lake = theme.lake && TRACK.lake ? { ...TRACK.lake } : null
+  if (theme.lake && !lake) {
     const inside = (x, z) => { // even-odd point-in-polygon on the racing line
       let c = false
       for (let i = 0, j = POINTS.length - 1; i < POINTS.length; j = i++) {
@@ -43,7 +44,7 @@ export function terrainInfo() {
       for (const p of POINTS) { clear = Math.min(clear, Math.hypot(p.x - x, p.y - z)); if (clear < best.clear) break }
       if (clear > best.clear) best = { x, z, clear }
     }
-    if (best.clear > 70) lake = { x: best.x, z: best.z, r: best.clear - FLAT - 25 }
+    if (best.clear > 45) lake = { x: best.x, z: best.z, r: best.clear - FLAT - 12 }
   }
   info = { centre, size: (half + 420) * 2, rimFrom: half + 260, start, lake, theme }
   cacheFor = TRACK
