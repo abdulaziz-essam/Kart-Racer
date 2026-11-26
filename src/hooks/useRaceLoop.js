@@ -7,9 +7,9 @@ import { pointAt, yawAt, LAP_LENGTH } from '../game/path'
 import { SUN_DIR } from '../SkyDome'
 import { LAPS, COUNTDOWN } from '../game/constants'
 
-const tmp = new THREE.Vector3()
-const back = new THREE.Vector3()
-const camTarget = new THREE.Vector3()
+const scratchVec = new THREE.Vector3()     // reusable scratch vector (avoids per-frame allocation)
+const behindVec = new THREE.Vector3()      // direction from player toward camera (behind kart)
+const cameraTargetPos = new THREE.Vector3()
 const UP = new THREE.Vector3(0, 1, 0)
 
 const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : n % 10] || 'th')
@@ -19,133 +19,134 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
   const race = useRef({ t: 0, phase: 'countdown', lights: -1, results: [], hudT: 0, lapStart: 0, lastLap: 1, best: null, lapTimes: [] })
 
   useEffect(() => {
-    const p = field.find((k) => k.player).st
+    const playerKartState = field.find((k) => k.player).st
     if (import.meta.env.DEV) window.__race = { field, race }
-    camera.position.set(p.pos.x - Math.cos(p.yaw) * 9, 4, p.pos.z + Math.sin(p.yaw) * 9)
-    camera.lookAt(p.pos)
+    camera.position.set(playerKartState.pos.x - Math.cos(playerKartState.yaw) * 9, 4, playerKartState.pos.z + Math.sin(playerKartState.yaw) * 9)
+    camera.lookAt(playerKartState.pos)
     onPhase?.('countdown')
   }, [camera, field, onPhase])
 
   useFrame((state, rawDt) => {
     const dt = Math.min(rawDt, 1 / 30)
-    const R = race.current
-    R.t += dt
+    const raceState = race.current
+    raceState.t += dt
     const player = field.find((k) => k.player)
-    const P = player.st
+    const playerKart = player.st
 
     // ----- countdown & start lights -----
-    if (R.phase === 'countdown') {
-      const lit = Math.min(5, Math.floor((R.t - 0.6) / 0.6) + 1)
-      if (lit !== R.lights) {
-        R.lights = lit
-        track.bulbs.forEach((b, i) => { b.material.emissiveIntensity = i < lit ? 5 : 0; b.material.emissive.set('#ff1a0a') })
+    if (raceState.phase === 'countdown') {
+      const litCount = Math.min(5, Math.floor((raceState.t - 0.6) / 0.6) + 1)
+      if (litCount !== raceState.lights) {
+        raceState.lights = litCount
+        track.bulbs.forEach((bulb, i) => { bulb.material.emissiveIntensity = i < litCount ? 5 : 0; bulb.material.emissive.set('#ff1a0a') })
       }
-      if (R.t >= COUNTDOWN) {
-        R.phase = 'race'; R.raceStart = R.t; R.lapStart = R.t
-        track.bulbs.forEach((b) => { b.material.emissive.set('#19ff5a'); b.material.emissiveIntensity = 5 })
+      if (raceState.t >= COUNTDOWN) {
+        raceState.phase = 'race'; raceState.raceStart = raceState.t; raceState.lapStart = raceState.t
+        track.bulbs.forEach((bulb) => { bulb.material.emissive.set('#19ff5a'); bulb.material.emissiveIntensity = 5 })
         onPhase?.('race')
       }
     }
-    const racing = R.phase !== 'countdown'
+    const racing = raceState.phase !== 'countdown'
 
     // ----- inputs + physics -----
-    const k = keys.current
-    if (k.reset && racing) { // respawn on the racing line
-      const s = P.loc.dist
-      P.pos.copy(pointAt(s, 0)); P.yaw = P.velYaw = yawAt(s); P.speed = 0
+    const input = keys.current
+    if (input.reset && racing) { // respawn on the racing line
+      const dist = playerKart.loc.dist
+      playerKart.pos.copy(pointAt(dist, 0)); playerKart.yaw = playerKart.velYaw = yawAt(dist); playerKart.speed = 0
     }
-    for (const kt of field) {
-      const st = kt.st
-      let input
-      if (!racing) input = {}
-      else if (kt.player && !st.finished && !(import.meta.env.DEV && window.__autopilot)) input = k
-      else input = aiInput(st, kt.ai || { lane: 0, phase: 0, skill: 0.9 }, P.raceDist + P.offset - st.offset, R.t)
-      if (kt.player && st.finished) st.maxMul = 0.85
-      stepKart(st, input, dt)
-      collideBoxes(st, track.colliders.boxes)
-      st.surface = detectSurface(st)
+    for (const racer of field) {
+      const kartState = racer.st
+      let racerInput
+      if (!racing) racerInput = {}
+      else if (racer.player && !kartState.finished && !(import.meta.env.DEV && window.__autopilot)) racerInput = input
+      else racerInput = aiInput(kartState, racer.ai || { lane: 0, phase: 0, skill: 0.9 }, playerKart.raceDist + playerKart.offset - kartState.offset, raceState.t)
+      if (racer.player && kartState.finished) kartState.maxMul = 0.85
+      stepKart(kartState, racerInput, dt)
+      collideBoxes(kartState, track.colliders.boxes)
+      kartState.surface = detectSurface(kartState)
     }
     collideKarts(field.map((f) => f.st))
 
     // ----- laps, finish, positions -----
-    for (const kt of field) {
-      const st = kt.st
-      st.progress = st.raceDist + st.offset
-      if (!st.finished && st.progress >= LAPS * LAP_LENGTH && racing) {
-        st.finished = true; st.finishTime = R.t - R.raceStart
-        R.results.push({ name: kt.name, time: st.finishTime, player: !!kt.player, paint: kt.paint })
-        if (kt.player) { R.phase = 'finished'; onPhase?.('finished'); onFinish?.(R.results.slice(), field) }
-        else if (P.finished) onFinish?.(R.results.slice(), field)
+    for (const racer of field) {
+      const kartState = racer.st
+      kartState.progress = kartState.raceDist + kartState.offset
+      if (!kartState.finished && kartState.progress >= LAPS * LAP_LENGTH && racing) {
+        kartState.finished = true; kartState.finishTime = raceState.t - raceState.raceStart
+        raceState.results.push({ name: racer.name, time: kartState.finishTime, player: !!racer.player, paint: racer.paint })
+        if (racer.player) { raceState.phase = 'finished'; onPhase?.('finished'); onFinish?.(raceState.results.slice(), field) }
+        else if (playerKart.finished) onFinish?.(raceState.results.slice(), field)
       }
     }
-    const order = [...field].sort((a, b) => {
+    const finishOrder = [...field].sort((a, b) => {
       if (a.st.finished && b.st.finished) return a.st.finishTime - b.st.finishTime
       if (a.st.finished !== b.st.finished) return a.st.finished ? -1 : 1
       return b.st.progress - a.st.progress
     })
-    const place = order.indexOf(player) + 1
-    const lap = Math.min(LAPS, Math.max(1, Math.floor(P.progress / LAP_LENGTH) + 1))
-    if (racing && !P.finished && lap !== R.lastLap) {
-      const lt = R.t - R.lapStart
-      R.lapTimes.push(lt); R.best = R.best == null ? lt : Math.min(R.best, lt)
-      R.lapStart = R.t; R.lastLap = lap
-      R.flash = { text: lap === LAPS ? 'FINAL LAP!' : `LAP ${lap}`, until: R.t + 1.6 }
+    const playerPlace = finishOrder.indexOf(player) + 1
+    const currentLap = Math.min(LAPS, Math.max(1, Math.floor(playerKart.progress / LAP_LENGTH) + 1))
+    if (racing && !playerKart.finished && currentLap !== raceState.lastLap) {
+      const lapTime = raceState.t - raceState.lapStart
+      raceState.lapTimes.push(lapTime); raceState.best = raceState.best == null ? lapTime : Math.min(raceState.best, lapTime)
+      raceState.lapStart = raceState.t; raceState.lastLap = currentLap
+      raceState.flash = { text: currentLap === LAPS ? 'FINAL LAP!' : `LAP ${currentLap}`, until: raceState.t + 1.6 }
     }
 
     // ----- visuals -----
-    const t = state.clock.elapsedTime
-    for (const kt of field) {
-      const { st, kart } = kt
-      kart.root.position.set(st.pos.x, 0, st.pos.z)
-      kart.root.rotation.y = st.yaw
-      const sp = Math.min(Math.abs(st.speed) / 10, 1)
-      const sf = Math.min(Math.abs(st.speed) / 8, 1) * (st.speed < 0 ? -1 : 1)
-      kart.body.position.y = Math.sin(t * 18 + kt.idx) * 0.012 * sp
-        + (st.surface === 'grass' ? Math.sin(t * 40 + kt.idx) * 0.02 * sp : 0)
-        + (st.bump > 0 ? Math.sin(st.bump * 60) * 0.04 : 0)
-      kart.body.rotation.x = THREE.MathUtils.damp(kart.body.rotation.x, -st.steer * sf * 0.07 - (st.drifting ? st.steer * 0.08 : 0), 6, dt)
-      kart.body.rotation.z = THREE.MathUtils.damp(kart.body.rotation.z, st.boost > 0 ? -0.05 : 0, 6, dt)
-      for (const w of kart.wheels) {
-        w.pivot.rotation.z -= (st.speed / w.r) * dt
-        if (w.front) w.pivot.rotation.y = st.steer * 0.35
+    const elapsed = state.clock.elapsedTime
+    for (const racer of field) {
+      const { st: kartState, kart } = racer
+      kart.root.position.set(kartState.pos.x, 0, kartState.pos.z)
+      kart.root.rotation.y = kartState.yaw
+      const speedNorm = Math.min(Math.abs(kartState.speed) / 10, 1)              // 0–1, for bobbing intensity
+      const speedSigned = Math.min(Math.abs(kartState.speed) / 8, 1) * (kartState.speed < 0 ? -1 : 1)
+      kart.body.position.y = Math.sin(elapsed * 18 + racer.idx) * 0.012 * speedNorm
+        + (kartState.surface === 'grass' ? Math.sin(elapsed * 40 + racer.idx) * 0.02 * speedNorm : 0)
+        + (kartState.bump > 0 ? Math.sin(kartState.bump * 60) * 0.04 : 0)
+      kart.body.rotation.x = THREE.MathUtils.damp(kart.body.rotation.x, -kartState.steer * speedSigned * 0.07 - (kartState.drifting ? kartState.steer * 0.08 : 0), 6, dt)
+      kart.body.rotation.z = THREE.MathUtils.damp(kart.body.rotation.z, kartState.boost > 0 ? -0.05 : 0, 6, dt)
+      for (const wheel of kart.wheels) {
+        wheel.pivot.rotation.z -= (kartState.speed / wheel.r) * dt
+        if (wheel.front) wheel.pivot.rotation.y = kartState.steer * 0.35
       }
-      kart.driver.rotation.x = -st.steer * 0.18 * sp
+      kart.driver.rotation.x = -kartState.steer * 0.18 * speedNorm
     }
 
     // ----- chase camera -----
-    back.set(-Math.cos(P.yaw), 0, Math.sin(P.yaw))
-    const dist = R.phase === 'countdown' ? 9 + (COUNTDOWN - R.t) * 1.5 : 8.5 + Math.abs(P.speed) * 0.05
-    camTarget.copy(P.pos).addScaledVector(back, dist).addScaledVector(UP, 3.4 + (R.phase === 'countdown' ? (COUNTDOWN - R.t) * 0.6 : 0))
-    camera.position.lerp(camTarget, 1 - Math.exp(-dt * 5))
-    camera.lookAt(tmp.copy(P.pos).addScaledVector(back, -3).addScaledVector(UP, 1.3))
-    const fov = 60 + Math.abs(P.speed) * 0.35 + (P.boost > 0 ? 6 : 0)
-    if (Math.abs(camera.fov - fov) > 0.05) { camera.fov = THREE.MathUtils.damp(camera.fov, fov, 3, dt); camera.updateProjectionMatrix() }
+    behindVec.set(-Math.cos(playerKart.yaw), 0, Math.sin(playerKart.yaw))
+    const cameraDistance = raceState.phase === 'countdown' ? 9 + (COUNTDOWN - raceState.t) * 1.5 : 8.5 + Math.abs(playerKart.speed) * 0.05
+    const cameraHeightOffset = 3.4 + (raceState.phase === 'countdown' ? (COUNTDOWN - raceState.t) * 0.6 : 0)
+    cameraTargetPos.copy(playerKart.pos).addScaledVector(behindVec, cameraDistance).addScaledVector(UP, cameraHeightOffset)
+    camera.position.lerp(cameraTargetPos, 1 - Math.exp(-dt * 5))
+    camera.lookAt(scratchVec.copy(playerKart.pos).addScaledVector(behindVec, -3).addScaledVector(UP, 1.3))
+    const targetFov = 60 + Math.abs(playerKart.speed) * 0.35 + (playerKart.boost > 0 ? 6 : 0)
+    if (Math.abs(camera.fov - targetFov) > 0.05) { camera.fov = THREE.MathUtils.damp(camera.fov, targetFov, 3, dt); camera.updateProjectionMatrix() }
 
     if (sun.current) {
-      sun.current.position.copy(P.pos).addScaledVector(SUN_DIR, 90)
-      sun.current.target.position.copy(P.pos)
+      sun.current.position.copy(playerKart.pos).addScaledVector(SUN_DIR, 90)
+      sun.current.target.position.copy(playerKart.pos)
       sun.current.target.updateMatrixWorld()
     }
 
     // ----- HUD (direct DOM, throttled) -----
-    R.hudT += dt
-    const h = hud.current
-    if (h.speed && R.hudT > 0.06) {
-      R.hudT = 0
-      h.speed.textContent = Math.round(Math.abs(P.speed) * 3.6)
-      h.pos.innerHTML = `${place}<sup>${ordinal(place).slice(String(place).length)}</sup><small>/${field.length}</small>`
-      h.lap.textContent = `${lap}/${LAPS}`
-      h.time.textContent = racing ? ((P.finished ? P.finishTime : R.t - R.raceStart)).toFixed(2) : '0.00'
-      h.best.textContent = R.best == null ? '--' : R.best.toFixed(2)
-      h.surface.textContent = P.boost > 0 ? '🔥 BOOST!' : P.drifting ? (P.driftTime > 0.8 ? '✨ Release to boost!' : '💨 Drifting…') : P.surface === 'grass' ? '🌱 Off track!' : ''
-      h.surface.style.opacity = h.surface.textContent ? 1 : 0
-      let big = ''
-      if (R.phase === 'countdown') big = R.t < 0.6 ? '' : String(Math.max(1, 3 - Math.floor((R.t - 0.6) / 1.2)))
-      else if (P.finished) big = 'FINISH!'
-      else if (R.t - R.raceStart < 1) big = 'GO!'
-      else if (R.flash && R.t < R.flash.until) big = R.flash.text
-      if (h.big.textContent !== big) { h.big.textContent = big; h.big.classList.remove('pop'); void h.big.offsetWidth; if (big) h.big.classList.add('pop') }
-      h.board.innerHTML = order.map((kt, i) => `<li class="${kt.player ? 'me' : ''}"><i style="background:${kt.paint || '#1239d6'}"></i>${i + 1}. ${kt.name}</li>`).join('')
+    raceState.hudT += dt
+    const hudElements = hud.current
+    if (hudElements.speed && raceState.hudT > 0.06) {
+      raceState.hudT = 0
+      hudElements.speed.textContent = Math.round(Math.abs(playerKart.speed) * 3.6)
+      hudElements.pos.innerHTML = `${playerPlace}<sup>${ordinal(playerPlace).slice(String(playerPlace).length)}</sup><small>/${field.length}</small>`
+      hudElements.lap.textContent = `${currentLap}/${LAPS}`
+      hudElements.time.textContent = racing ? ((playerKart.finished ? playerKart.finishTime : raceState.t - raceState.raceStart)).toFixed(2) : '0.00'
+      hudElements.best.textContent = raceState.best == null ? '--' : raceState.best.toFixed(2)
+      hudElements.surface.textContent = playerKart.boost > 0 ? '🔥 BOOST!' : playerKart.drifting ? (playerKart.driftTime > 0.8 ? '✨ Release to boost!' : '💨 Drifting…') : playerKart.surface === 'grass' ? '🌱 Off track!' : ''
+      hudElements.surface.style.opacity = hudElements.surface.textContent ? 1 : 0
+      let bigMessage = ''
+      if (raceState.phase === 'countdown') bigMessage = raceState.t < 0.6 ? '' : String(Math.max(1, 3 - Math.floor((raceState.t - 0.6) / 1.2)))
+      else if (playerKart.finished) bigMessage = 'FINISH!'
+      else if (raceState.t - raceState.raceStart < 1) bigMessage = 'GO!'
+      else if (raceState.flash && raceState.t < raceState.flash.until) bigMessage = raceState.flash.text
+      if (hudElements.big.textContent !== bigMessage) { hudElements.big.textContent = bigMessage; hudElements.big.classList.remove('pop'); void hudElements.big.offsetWidth; if (bigMessage) hudElements.big.classList.add('pop') }
+      hudElements.board.innerHTML = finishOrder.map((racer, i) => `<li class="${racer.player ? 'me' : ''}"><i style="background:${racer.paint || '#1239d6'}"></i>${i + 1}. ${racer.name}</li>`).join('')
     }
   })
 }

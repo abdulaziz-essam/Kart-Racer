@@ -34,7 +34,7 @@ function blob(parts) {
     return g
   }))
 }
-const G = {
+const GEOMETRIES = {
   trunk: new THREE.CylinderGeometry(0.28, 0.4, 3.2, 7).translate(0, 1.6, 0),
   crown: blob([[2.3, 0, 4.6, 0], [1.6, 1.3, 3.9, 0.3], [1.7, -1.2, 4.0, -0.4], [1.5, 0.2, 5.8, -0.9]]),
   pine: mergeGeometries([
@@ -55,7 +55,7 @@ const G = {
   banner: new THREE.PlaneGeometry(1.6, 0.9).translate(0.8, 3.9, 0),
 }
 
-const M = {
+const MATERIALS = {
   trunk: new THREE.MeshStandardMaterial({ color: '#7a4a26', roughness: 0.9 }),
   leaves: new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.8, sheen: 0.3, sheenColor: new THREE.Color('#e4ffb0'), sheenRoughness: 0.6 }),
   grass: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.8 }),
@@ -151,17 +151,20 @@ function Instances({ geometry, material, items, place, color, castShadow = true,
   return <instancedMesh ref={ref} args={[geometry, material, items.length]} castShadow={castShadow} receiveShadow={receiveShadow} />
 }
 
-const ground = (m, [x, z, s, rot]) => { m.position.set(x, heightAt(x, z) - 0.05, z); m.scale.setScalar(s); m.rotation.set(0, rot, 0) }
-const leafColor = (base, spread) => (c, it, i) => c.setHSL(base + ((i * 0.618) % 1) * spread, 0.62, 0.36 + ((i * 0.37) % 1) * 0.12)
+// Places an instance on the terrain surface at the given (x, z) position
+const placeOnGround = (obj, [x, z, scale, rotation]) => { obj.position.set(x, heightAt(x, z) - 0.05, z); obj.scale.setScalar(scale); obj.rotation.set(0, rotation, 0) }
+
+// Returns a per-instance color function that varies hue around a base value
+const makeLeafColorFn = (baseHue, hueSpread) => (color, item, index) => color.setHSL(baseHue + ((index * 0.618) % 1) * hueSpread, 0.62, 0.36 + ((index * 0.37) % 1) * 0.12)
 
 export default function Scenery({ trees }) {
-  const L = useLayout(trees)
-  const leaf = useMemo(() => {
+  const layout = useLayout(trees)
+  const leafColors = useMemo(() => {
     const h = terrainInfo().theme.leafHue
     return {
-      round: leafColor(h, 0.08),
-      bush: leafColor(h + 0.02, 0.07),
-      pine: (c, it, i) => c.setHSL(0.36 + ((i * 0.618) % 1) * 0.05, 0.55, 0.26 + ((i * 0.37) % 1) * 0.08),
+      round: makeLeafColorFn(h, 0.08),
+      bush: makeLeafColorFn(h + 0.02, 0.07),
+      pine: (color, item, index) => color.setHSL(0.36 + ((index * 0.618) % 1) * 0.05, 0.55, 0.26 + ((index * 0.37) % 1) * 0.08),
     }
   }, [])
   const clouds = useRef()
@@ -176,31 +179,31 @@ export default function Scenery({ trees }) {
   const flagColors = ['#ff3b30', '#ffcc00', '#1f7aff', '#2ecc71', '#ff7a00', '#c83cff']
   return (
     <group>
-      <Instances geometry={G.trunk} material={M.trunk} items={L.round} place={ground} />
-      <Instances geometry={G.crown} material={M.leaves} items={L.round} place={ground} color={leaf.round} />
-      <Instances geometry={G.trunk} material={M.trunk} items={L.pine} place={ground} />
-      <Instances geometry={G.pine} material={M.leaves} items={L.pine} place={ground} color={leaf.pine} />
-      <Instances geometry={G.bush} material={M.leaves} items={L.bush} place={ground} color={leaf.bush} />
-      <Instances geometry={G.tuft} material={M.grass} items={L.tuft} place={ground} castShadow={false}
-        color={(c, it, i) => c.setHSL(0.25 + ((i * 0.618) % 1) * 0.06, 0.6, 0.3 + ((i * 0.31) % 1) * 0.15)} />
-      <Instances geometry={G.flower} material={M.flower} items={L.flower} place={ground} castShadow={false}
-        color={(c, it) => c.setHSL(it[4], 0.85, 0.6)} />
-      <Instances geometry={G.tire} material={M.tire} items={L.tire}
-        place={(m, [x, z, h]) => { m.position.set(x, heightAt(x, z) + h * 0.4, z); m.scale.setScalar(1); m.rotation.set(0, 0, 0) }}
-        color={(c, it) => c.set(it[3] ? '#f4f4f4' : '#e8231c')} />
-      <Instances geometry={G.rock} material={M.rock} items={L.rock}
-        place={(m, [x, z, s, rot]) => { m.position.set(x, heightAt(x, z) + s * 0.25, z); m.scale.set(s, s * 0.65, s * 0.9); m.rotation.set(rot * 0.3, rot, 0) }} />
+      <Instances geometry={GEOMETRIES.trunk} material={MATERIALS.trunk} items={layout.round} place={placeOnGround} />
+      <Instances geometry={GEOMETRIES.crown} material={MATERIALS.leaves} items={layout.round} place={placeOnGround} color={leafColors.round} />
+      <Instances geometry={GEOMETRIES.trunk} material={MATERIALS.trunk} items={layout.pine} place={placeOnGround} />
+      <Instances geometry={GEOMETRIES.pine} material={MATERIALS.leaves} items={layout.pine} place={placeOnGround} color={leafColors.pine} />
+      <Instances geometry={GEOMETRIES.bush} material={MATERIALS.leaves} items={layout.bush} place={placeOnGround} color={leafColors.bush} />
+      <Instances geometry={GEOMETRIES.tuft} material={MATERIALS.grass} items={layout.tuft} place={placeOnGround} castShadow={false}
+        color={(color, item, index) => color.setHSL(0.25 + ((index * 0.618) % 1) * 0.06, 0.6, 0.3 + ((index * 0.31) % 1) * 0.15)} />
+      <Instances geometry={GEOMETRIES.flower} material={MATERIALS.flower} items={layout.flower} place={placeOnGround} castShadow={false}
+        color={(color, item) => color.setHSL(item[4], 0.85, 0.6)} />
+      <Instances geometry={GEOMETRIES.tire} material={MATERIALS.tire} items={layout.tire}
+        place={(obj, [x, z, stackHeight]) => { obj.position.set(x, heightAt(x, z) + stackHeight * 0.4, z); obj.scale.setScalar(1); obj.rotation.set(0, 0, 0) }}
+        color={(color, item) => color.set(item[3] ? '#f4f4f4' : '#e8231c')} />
+      <Instances geometry={GEOMETRIES.rock} material={MATERIALS.rock} items={layout.rock}
+        place={(obj, [x, z, scale, rotation]) => { obj.position.set(x, heightAt(x, z) + scale * 0.25, z); obj.scale.set(scale, scale * 0.65, scale * 0.9); obj.rotation.set(rotation * 0.3, rotation, 0) }} />
       <group ref={clouds}>
-        <Instances geometry={G.puff} material={M.cloud} items={L.cloud} castShadow={false} receiveShadow={false}
-          place={(m, [x, y, z, s]) => { m.position.set(x, y, z); m.scale.set(s * 1.4, s * 0.75, s); m.rotation.set(0, 0, 0) }} />
+        <Instances geometry={GEOMETRIES.puff} material={MATERIALS.cloud} items={layout.cloud} castShadow={false} receiveShadow={false}
+          place={(obj, [x, y, z, scale]) => { obj.position.set(x, y, z); obj.scale.set(scale * 1.4, scale * 0.75, scale); obj.rotation.set(0, 0, 0) }} />
       </group>
-      <Instances geometry={G.pole} material={M.pole} items={L.flag}
-        place={(m, [x, z]) => { m.position.set(x, heightAt(x, z), z); m.scale.setScalar(1); m.rotation.set(0, 0, 0) }} />
+      <Instances geometry={GEOMETRIES.pole} material={MATERIALS.pole} items={layout.flag}
+        place={(obj, [x, z]) => { obj.position.set(x, heightAt(x, z), z); obj.scale.setScalar(1); obj.rotation.set(0, 0, 0) }} />
       <group ref={flags}>
-        {L.flag.map(([x, z, side, s], i) => {
-          const base = Math.atan2(-(pointAt(s + 2).z - pointAt(s).z), pointAt(s + 2).x - pointAt(s).x) + Math.PI
+        {layout.flag.map(([x, z, side, trackDist], i) => {
+          const baseYaw = Math.atan2(-(pointAt(trackDist + 2).z - pointAt(trackDist).z), pointAt(trackDist + 2).x - pointAt(trackDist).x) + Math.PI
           return (
-            <mesh key={i} geometry={G.banner} position={[x, heightAt(x, z), z]} rotation={[0, base, 0]} userData={{ base }} castShadow>
+            <mesh key={i} geometry={GEOMETRIES.banner} position={[x, heightAt(x, z), z]} rotation={[0, baseYaw, 0]} userData={{ base: baseYaw }} castShadow>
               <meshStandardMaterial color={flagColors[i % flagColors.length]} side={THREE.DoubleSide} roughness={0.6} />
             </mesh>
           )

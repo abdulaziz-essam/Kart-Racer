@@ -12,63 +12,63 @@ const wrap = (s) => ((s % LAP_LENGTH) + LAP_LENGTH) % LAP_LENGTH
 
 /* ---------- inflatable arch: half torus with candy stripes ---------- */
 function archGeometry(span, colors) {
-  const g = new THREE.TorusGeometry(span, 1.15, 14, 48, Math.PI).toNonIndexed()
-  const pos = g.attributes.position, col = new Float32Array(pos.count * 3), c = new THREE.Color()
-  for (let i = 0; i < pos.count; i += 3) {
+  const geo = new THREE.TorusGeometry(span, 1.15, 14, 48, Math.PI).toNonIndexed()
+  const positions = geo.attributes.position, colorBuffer = new Float32Array(positions.count * 3), tempColor = new THREE.Color()
+  for (let i = 0; i < positions.count; i += 3) {
     // stripe by angle around the arch, using the triangle's centre
-    const x = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3
-    const y = (pos.getY(i) + pos.getY(i + 1) + pos.getY(i + 2)) / 3
-    const a = Math.atan2(y, x)
-    c.set(colors[Math.floor((a / Math.PI) * 9) % colors.length])
-    for (let k = 0; k < 3; k++) col.set([c.r, c.g, c.b], (i + k) * 3)
+    const cx = (positions.getX(i) + positions.getX(i + 1) + positions.getX(i + 2)) / 3
+    const cy = (positions.getY(i) + positions.getY(i + 1) + positions.getY(i + 2)) / 3
+    const angle = Math.atan2(cy, cx)
+    tempColor.set(colors[Math.floor((angle / Math.PI) * 9) % colors.length])
+    for (let v = 0; v < 3; v++) colorBuffer.set([tempColor.r, tempColor.g, tempColor.b], (i + v) * 3)
   }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3))
-  g.computeVertexNormals()
-  return g
+  geo.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
+  geo.computeVertexNormals()
+  return geo
 }
 
 /* ---------- chevron board texture ---------- */
 function chevronTexture() {
-  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 96
-  const x = cv.getContext('2d')
-  x.fillStyle = '#ffffff'; x.fillRect(0, 0, 256, 96)
-  x.fillStyle = '#e3261c'
+  const canvas = document.createElement('canvas'); canvas.width = 256; canvas.height = 96
+  const ctx = canvas.getContext('2d')
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 256, 96)
+  ctx.fillStyle = '#e3261c'
   for (let i = 0; i < 3; i++) { // three "<" chevrons
     const ox = 30 + i * 75
-    x.beginPath(); x.moveTo(ox + 40, 10); x.lineTo(ox, 48); x.lineTo(ox + 40, 86); x.lineTo(ox + 62, 86); x.lineTo(ox + 22, 48); x.lineTo(ox + 62, 10); x.closePath(); x.fill()
+    ctx.beginPath(); ctx.moveTo(ox + 40, 10); ctx.lineTo(ox, 48); ctx.lineTo(ox + 40, 86); ctx.lineTo(ox + 62, 86); ctx.lineTo(ox + 22, 48); ctx.lineTo(ox + 62, 10); ctx.closePath(); ctx.fill()
   }
-  x.strokeStyle = '#1a1a1a'; x.lineWidth = 6; x.strokeRect(3, 3, 250, 90)
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4
-  return t
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 6; ctx.strokeRect(3, 3, 250, 90)
+  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4
+  return texture
 }
 
 /* ---------- striped tent canopy ---------- */
 function tentGeometry(colorA, colorB) {
-  const g = new THREE.ConeGeometry(3.4, 2.2, 12, 1).toNonIndexed()
-  g.translate(0, 3.6, 0)
-  const pos = g.attributes.position, col = new Float32Array(pos.count * 3)
-  const a = new THREE.Color(colorA), b = new THREE.Color(colorB)
-  for (let i = 0; i < pos.count; i += 3) {
-    const x = (pos.getX(i) + pos.getX(i + 1) + pos.getX(i + 2)) / 3
-    const z = (pos.getZ(i) + pos.getZ(i + 1) + pos.getZ(i + 2)) / 3
-    const seg = Math.floor(((Math.atan2(z, x) + Math.PI) / (Math.PI * 2)) * 12)
-    const c = seg % 2 ? a : b
-    for (let k = 0; k < 3; k++) col.set([c.r, c.g, c.b], (i + k) * 3)
+  const geo = new THREE.ConeGeometry(3.4, 2.2, 12, 1).toNonIndexed()
+  geo.translate(0, 3.6, 0)
+  const positions = geo.attributes.position, colorBuffer = new Float32Array(positions.count * 3)
+  const colA = new THREE.Color(colorA), colB = new THREE.Color(colorB)
+  for (let i = 0; i < positions.count; i += 3) {
+    const cx = (positions.getX(i) + positions.getX(i + 1) + positions.getX(i + 2)) / 3
+    const cz = (positions.getZ(i) + positions.getZ(i + 1) + positions.getZ(i + 2)) / 3
+    const segment = Math.floor(((Math.atan2(cz, cx) + Math.PI) / (Math.PI * 2)) * 12)
+    const stripeColor = segment % 2 ? colA : colB
+    for (let v = 0; v < 3; v++) colorBuffer.set([stripeColor.r, stripeColor.g, stripeColor.b], (i + v) * 3)
   }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3))
-  g.computeVertexNormals()
-  return g
+  geo.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
+  geo.computeVertexNormals()
+  return geo
 }
 
 function Instanced({ geometry, material, items, place, color, castShadow = true }) {
   const ref = useRef()
   useLayoutEffect(() => {
     if (!ref.current) return // empty list on this track
-    const o = new THREE.Object3D(), c = new THREE.Color()
-    items.forEach((it, i) => {
-      o.position.set(0, 0, 0); o.rotation.set(0, 0, 0); o.scale.set(1, 1, 1)
-      place(o, it); o.updateMatrix(); ref.current.setMatrixAt(i, o.matrix)
-      if (color) ref.current.setColorAt(i, color(c, it, i))
+    const dummy = new THREE.Object3D(), tempColor = new THREE.Color()
+    items.forEach((item, i) => {
+      dummy.position.set(0, 0, 0); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1)
+      place(dummy, item); dummy.updateMatrix(); ref.current.setMatrixAt(i, dummy.matrix)
+      if (color) ref.current.setColorAt(i, color(tempColor, item, i))
     })
     ref.current.instanceMatrix.needsUpdate = true
     if (ref.current.instanceColor) ref.current.instanceColor.needsUpdate = true
@@ -160,37 +160,37 @@ export default function Props() {
     return { geometry: archGeometry(ROAD_HALF + 3.2, a.colors), x: p.x, z: p.z, yaw }
   }), [data])
 
-  const place = useMemo(() => ({
-    board: (o, b) => { o.position.set(b.x, heightAt(b.x, b.z), b.z); o.rotation.y = b.yaw - Math.PI / 2 },
-    post: (side) => (o, b) => {
-      const off = side * 1.1, ry = b.yaw - Math.PI / 2
-      o.position.set(b.x + Math.cos(ry) * off, heightAt(b.x, b.z), b.z - Math.sin(ry) * off)
+  const placeFns = useMemo(() => ({
+    board: (obj, board) => { obj.position.set(board.x, heightAt(board.x, board.z), board.z); obj.rotation.y = board.yaw - Math.PI / 2 },
+    post: (side) => (obj, board) => {
+      const lateralOffset = side * 1.1, rotY = board.yaw - Math.PI / 2
+      obj.position.set(board.x + Math.cos(rotY) * lateralOffset, heightAt(board.x, board.z), board.z - Math.sin(rotY) * lateralOffset)
     },
-    tent: (o, t) => { o.position.set(t.x, heightAt(t.x, t.z), t.z) },
-    barrel: (o, b) => { o.position.set(b.x, heightAt(b.x, b.z), b.z) },
-    hay: (o, h) => { o.position.set(h.x, heightAt(h.x, h.z), h.z); o.rotation.y = h.yaw },
+    tent: (obj, tent) => { obj.position.set(tent.x, heightAt(tent.x, tent.z), tent.z) },
+    barrel: (obj, barrel) => { obj.position.set(barrel.x, heightAt(barrel.x, barrel.z), barrel.z) },
+    hay: (obj, hay) => { obj.position.set(hay.x, heightAt(hay.x, hay.z), hay.z); obj.rotation.y = hay.yaw },
   }), [])
-  const barrelColor = useMemo(() => (c, b) => c.set(b.c), [])
+  const barrelColor = useMemo(() => (color, barrel) => color.set(barrel.c), [])
 
   return (
     <group>
-      {archMeshes.map((a, i) => (
-        <group key={i} position={[a.x, 0, a.z]} rotation={[0, a.yaw + Math.PI / 2, 0]}>
-          <mesh geometry={a.geometry} material={mats.arch} castShadow receiveShadow />
+      {archMeshes.map((arch, i) => (
+        <group key={i} position={[arch.x, 0, arch.z]} rotation={[0, arch.yaw + Math.PI / 2, 0]}>
+          <mesh geometry={arch.geometry} material={mats.arch} castShadow receiveShadow />
           <mesh geometry={geo.archFoot} material={mats.archFoot} position={[ROAD_HALF + 3.2, 0, 0]} />
           <mesh geometry={geo.archFoot} material={mats.archFoot} position={[-(ROAD_HALF + 3.2), 0, 0]} />
         </group>
       ))}
-      <Instanced geometry={geo.board} material={mats.boardL} items={data.boards.filter((b) => b.left)} place={place.board} />
-      <Instanced geometry={geo.board} material={mats.boardR} items={data.boards.filter((b) => !b.left)} place={place.board} />
-      <Instanced geometry={geo.boardPost} material={mats.post} items={data.boards} place={place.post(1)} castShadow={false} />
-      <Instanced geometry={geo.boardPost} material={mats.post} items={data.boards} place={place.post(-1)} castShadow={false} />
-      {geo.tents.map((g, k) => (
-        <Instanced key={k} geometry={g} material={mats.tent} items={data.tents.filter((t) => t.kind === k)} place={place.tent} />
+      <Instanced geometry={geo.board} material={mats.boardL} items={data.boards.filter((b) => b.left)} place={placeFns.board} />
+      <Instanced geometry={geo.board} material={mats.boardR} items={data.boards.filter((b) => !b.left)} place={placeFns.board} />
+      <Instanced geometry={geo.boardPost} material={mats.post} items={data.boards} place={placeFns.post(1)} castShadow={false} />
+      <Instanced geometry={geo.boardPost} material={mats.post} items={data.boards} place={placeFns.post(-1)} castShadow={false} />
+      {geo.tents.map((tentGeo, k) => (
+        <Instanced key={k} geometry={tentGeo} material={mats.tent} items={data.tents.filter((t) => t.kind === k)} place={placeFns.tent} />
       ))}
-      <Instanced geometry={geo.tentPole} material={mats.pole} items={data.tents} place={place.tent} castShadow={false} />
-      <Instanced geometry={geo.barrel} material={mats.barrel} items={data.barrels} place={place.barrel} color={barrelColor} />
-      <Instanced geometry={geo.hay} material={mats.hay} items={data.hay} place={place.hay} />
+      <Instanced geometry={geo.tentPole} material={mats.pole} items={data.tents} place={placeFns.tent} castShadow={false} />
+      <Instanced geometry={geo.barrel} material={mats.barrel} items={data.barrels} place={placeFns.barrel} color={barrelColor} />
+      <Instanced geometry={geo.hay} material={mats.hay} items={data.hay} place={placeFns.hay} />
     </group>
   )
 }
