@@ -19,7 +19,7 @@ const NOISE_GLSL = /* glsl */ `
  * Adds world-space noise to a material.
  * @param {object} o  { large, fine, largeAmt, fineAmt, rough } – scales and strengths
  */
-export function addWorldNoise(material, o) {
+export function addWorldNoise(material, params) {
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\nvarying vec3 vWorldPosN;')
@@ -28,23 +28,23 @@ export function addWorldNoise(material, o) {
       .replace('#include <common>', '#include <common>\n' + NOISE_GLSL)
       .replace('#include <color_fragment>', `#include <color_fragment>
         vec2 wp = vWorldPosN.xz;
-        float big = fbm(wp * ${o.large.toFixed(4)});
-        float speck = vnoise(wp * ${o.fine.toFixed(4)});
-        diffuseColor.rgb *= 1.0 + (big - 0.5) * ${o.largeAmt.toFixed(3)} + (speck - 0.5) * ${o.fineAmt.toFixed(3)};`)
+        float big = fbm(wp * ${params.large.toFixed(4)});
+        float speck = vnoise(wp * ${params.fine.toFixed(4)});
+        diffuseColor.rgb *= 1.0 + (big - 0.5) * ${params.largeAmt.toFixed(3)} + (speck - 0.5) * ${params.fineAmt.toFixed(3)};`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-        roughnessFactor = clamp(roughnessFactor + (speck - 0.5) * ${o.rough.toFixed(3)}, 0.04, 1.0);`)
+        roughnessFactor = clamp(roughnessFactor + (speck - 0.5) * ${params.rough.toFixed(3)}, 0.04, 1.0);`)
   }
-  material.customProgramCacheKey = () => 'wn' + JSON.stringify(o)
+  material.customProgramCacheKey = () => 'wn' + JSON.stringify(params)
   material.needsUpdate = true
 }
 
-const physical = (src, props) => {
-  const m = new THREE.MeshPhysicalMaterial({
-    color: src.color, emissive: src.emissive, emissiveIntensity: src.emissiveIntensity,
+const physical = (sourceMat, props) => {
+  const mat = new THREE.MeshPhysicalMaterial({
+    color: sourceMat.color, emissive: sourceMat.emissive, emissiveIntensity: sourceMat.emissiveIntensity,
     ...props,
   })
-  m.name = src.name
-  return m
+  mat.name = sourceMat.name
+  return mat
 }
 
 // ---------------------------------------------------------------------------
@@ -64,17 +64,17 @@ const KART_RULES = [
 
 export function styleKart(root) {
   const cache = new Map()
-  root.traverse((o) => {
-    if (!o.isMesh) return
-    o.castShadow = true
-    o.receiveShadow = true
-    const src = o.material
-    if (cache.has(src)) { o.material = cache.get(src); return }
-    const rule = KART_RULES.find(([re]) => re.test(src.name))
-    const m = physical(src, rule ? rule[1] : { roughness: 0.4, clearcoat: 0.5 })
-    m.envMapIntensity = 1.2
-    cache.set(src, m)
-    o.material = m
+  root.traverse((mesh) => {
+    if (!mesh.isMesh) return
+    mesh.castShadow = true
+    mesh.receiveShadow = true
+    const sourceMat = mesh.material
+    if (cache.has(sourceMat)) { mesh.material = cache.get(sourceMat); return }
+    const rule = KART_RULES.find(([re]) => re.test(sourceMat.name))
+    const newMat = physical(sourceMat, rule ? rule[1] : { roughness: 0.4, clearcoat: 0.5 })
+    newMat.envMapIntensity = 1.2
+    cache.set(sourceMat, newMat)
+    mesh.material = newMat
   })
 }
 
@@ -83,33 +83,32 @@ export function styleKart(root) {
 // ---------------------------------------------------------------------------
 export function styleTrack(root) {
   const cache = new Map()
-  root.traverse((o) => {
-    if (!o.isMesh) return
-    const src = o.material
-    if (cache.has(src)) { o.material = cache.get(src); return }
-    let m = src
-    const n = src.name
-    if (n === 'Asphalt') {
-      m = physical(src, { color: new THREE.Color('#3a3d47'), roughness: 0.82 })
-      addWorldNoise(m, { large: 0.035, fine: 3.5, largeAmt: 0.35, fineAmt: 0.25, rough: 0.3 })
-    } else if (n === 'Grass' || n === 'Hill_Green') {
-      // natural meadow green (the Blender colour reads as neon on screen)
-      m = physical(src, { color: new THREE.Color(n === 'Grass' ? '#4f9134' : '#5a9a3c'), roughness: 0.95, sheen: 0.15, sheenColor: new THREE.Color('#c8f0a0'), sheenRoughness: 0.7 })
-      addWorldNoise(m, { large: n === 'Grass' ? 0.02 : 0.004, fine: 1.4, largeAmt: 0.55, fineAmt: 0.25, rough: 0.1 })
-    } else if (n === 'Concrete') {
-      m = physical(src, { roughness: 0.85 })
-      addWorldNoise(m, { large: 0.08, fine: 6, largeAmt: 0.2, fineAmt: 0.12, rough: 0.2 })
-    } else if (n === 'Leaves') {
-      m = physical(src, { roughness: 0.8, sheen: 0.25, sheenColor: new THREE.Color('#d6ff9c'), sheenRoughness: 0.6 })
-    } else if (n === 'Cloud') {
-      m = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#dfeeff', emissiveIntensity: 0.55, roughness: 1, fog: false })
-      m.name = n
-    } else if (/Kerb|Barrier|Steel|Seats|Balloon|Gantry|Line_White/.test(n)) {
-      m = physical(src, { roughness: 0.6 })
-    } else if (n === 'Glass') {
-      m = physical(src, { roughness: 0.05, metalness: 0.2, clearcoat: 1 })
+  root.traverse((mesh) => {
+    if (!mesh.isMesh) return
+    const sourceMat = mesh.material
+    if (cache.has(sourceMat)) { mesh.material = cache.get(sourceMat); return }
+    let newMat = sourceMat
+    const name = sourceMat.name
+    if (name === 'Asphalt') {
+      newMat = physical(sourceMat, { color: new THREE.Color('#3a3d47'), roughness: 0.82 })
+      addWorldNoise(newMat, { large: 0.035, fine: 3.5, largeAmt: 0.35, fineAmt: 0.25, rough: 0.3 })
+    } else if (name === 'Grass' || name === 'Hill_Green') {
+      newMat = physical(sourceMat, { color: new THREE.Color(name === 'Grass' ? '#4f9134' : '#5a9a3c'), roughness: 0.95, sheen: 0.15, sheenColor: new THREE.Color('#c8f0a0'), sheenRoughness: 0.7 })
+      addWorldNoise(newMat, { large: name === 'Grass' ? 0.02 : 0.004, fine: 1.4, largeAmt: 0.55, fineAmt: 0.25, rough: 0.1 })
+    } else if (name === 'Concrete') {
+      newMat = physical(sourceMat, { roughness: 0.85 })
+      addWorldNoise(newMat, { large: 0.08, fine: 6, largeAmt: 0.2, fineAmt: 0.12, rough: 0.2 })
+    } else if (name === 'Leaves') {
+      newMat = physical(sourceMat, { roughness: 0.8, sheen: 0.25, sheenColor: new THREE.Color('#d6ff9c'), sheenRoughness: 0.6 })
+    } else if (name === 'Cloud') {
+      newMat = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#dfeeff', emissiveIntensity: 0.55, roughness: 1, fog: false })
+      newMat.name = name
+    } else if (/Kerb|Barrier|Steel|Seats|Balloon|Gantry|Line_White/.test(name)) {
+      newMat = physical(sourceMat, { roughness: 0.6 })
+    } else if (name === 'Glass') {
+      newMat = physical(sourceMat, { roughness: 0.05, metalness: 0.2, clearcoat: 1 })
     }
-    cache.set(src, m)
-    o.material = m
+    cache.set(sourceMat, newMat)
+    mesh.material = newMat
   })
 }

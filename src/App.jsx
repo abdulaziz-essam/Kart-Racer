@@ -27,7 +27,7 @@ export default function App() {
   const hud = useRef({})
   const [screen, setScreen] = useState(DEV_RACE ? 'card' : 'intro')
   const [raceIndex, setRaceIndex] = useState(Math.max(0, DEV_RACE - 1))
-  const [built, setBuilt] = useState(null) // { key, ...track build } for the loaded circuit
+  const [loadedTrack, setLoadedTrack] = useState(null)
   const [phase, setPhase] = useState('loading')
   const [standings, setStandings] = useState({})
   const [lastResult, setLastResult] = useState([])
@@ -37,16 +37,16 @@ export default function App() {
   // switch the racing line before anything for this race renders
   useMemo(() => setTrack(TRACKS[raceIndex]), [raceIndex])
   const trackKey = `${raceIndex}-${attempt}`
-  const ready = built?.key === trackKey
+  const ready = loadedTrack?.key === trackKey
 
-  const onTrack = useCallback((t) => setBuilt({ ...t, key: trackKey }), [trackKey])
+  const onTrack = useCallback((t) => setLoadedTrack({ ...t, key: trackKey }), [trackKey])
 
   const onFinish = useCallback((_results, field) => {
     if (finishedRef.current) return // first call = the player crossed the line
     finishedRef.current = true
     const result = raceOrder(field).map((k) => ({ name: k.name, player: !!k.player, paint: k.paint, time: k.st.finished ? k.st.finishTime : null }))
     setLastResult(result)
-    setStandings((s) => addRace(s, result))
+    setStandings((prevStandings) => addRace(prevStandings, result))
     setTimeout(() => setScreen('standings'), 2500) // let the finish sink in first
   }, [])
 
@@ -77,8 +77,8 @@ export default function App() {
         <StudioEnvironment />
         <Suspense fallback={null}>
           <Track key={`track-${trackKey}`} onReady={onTrack} />
-          {ready && <Scenery key={`scenery-${trackKey}`} trees={built.trees} />}
-          {ready && screen === 'race' && <Race key={`race-${trackKey}`} track={built} hud={hud} onPhase={setPhase} onFinish={onFinish} />}
+          {ready && <Scenery key={`scenery-${trackKey}`} trees={loadedTrack.trees} />}
+          {ready && screen === 'race' && <Race key={`race-${trackKey}`} track={loadedTrack} hud={hud} onPhase={setPhase} onFinish={onFinish} />}
         </Suspense>
         <EffectComposer multisampling={0} enableNormalPass={false}>
           <N8AO aoRadius={1.6} distanceFalloff={1.2} intensity={2.2} color="#20263a" halfRes quality="medium" />

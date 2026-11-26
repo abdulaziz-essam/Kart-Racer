@@ -13,7 +13,7 @@ const wrap = (s) => ((s % LAP_LENGTH) + LAP_LENGTH) % LAP_LENGTH
 /* ---------- inflatable arch: half torus with candy stripes ---------- */
 function archGeometry(span, colors) {
   const geo = new THREE.TorusGeometry(span, 1.15, 14, 48, Math.PI).toNonIndexed()
-  const positions = geo.attributes.position, colorBuffer = new Float32Array(positions.count * 3), tempColor = new THREE.Color()
+  const positions = propGeometries.attributes.position, colorBuffer = new Float32Array(positions.count * 3), tempColor = new THREE.Color()
   for (let i = 0; i < positions.count; i += 3) {
     // stripe by angle around the arch, using the triangle's centre
     const cx = (positions.getX(i) + positions.getX(i + 1) + positions.getX(i + 2)) / 3
@@ -22,8 +22,8 @@ function archGeometry(span, colors) {
     tempColor.set(colors[Math.floor((angle / Math.PI) * 9) % colors.length])
     for (let v = 0; v < 3; v++) colorBuffer.set([tempColor.r, tempColor.g, tempColor.b], (i + v) * 3)
   }
-  geo.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
-  geo.computeVertexNormals()
+  propGeometries.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
+  propGeometries.computeVertexNormals()
   return geo
 }
 
@@ -45,8 +45,8 @@ function chevronTexture() {
 /* ---------- striped tent canopy ---------- */
 function tentGeometry(colorA, colorB) {
   const geo = new THREE.ConeGeometry(3.4, 2.2, 12, 1).toNonIndexed()
-  geo.translate(0, 3.6, 0)
-  const positions = geo.attributes.position, colorBuffer = new Float32Array(positions.count * 3)
+  propGeometries.translate(0, 3.6, 0)
+  const positions = propGeometries.attributes.position, colorBuffer = new Float32Array(positions.count * 3)
   const colA = new THREE.Color(colorA), colB = new THREE.Color(colorB)
   for (let i = 0; i < positions.count; i += 3) {
     const cx = (positions.getX(i) + positions.getX(i + 1) + positions.getX(i + 2)) / 3
@@ -55,8 +55,8 @@ function tentGeometry(colorA, colorB) {
     const stripeColor = segment % 2 ? colA : colB
     for (let v = 0; v < 3; v++) colorBuffer.set([stripeColor.r, stripeColor.g, stripeColor.b], (i + v) * 3)
   }
-  geo.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
-  geo.computeVertexNormals()
+  propGeometries.setAttribute('color', new THREE.BufferAttribute(colorBuffer, 3))
+  propGeometries.computeVertexNormals()
   return geo
 }
 
@@ -133,7 +133,7 @@ export default function Props() {
     return { arches, boards, boardsLeft, boardsRight, tents, barrels, hay }
   }, [])
 
-  const mats = useMemo(() => {
+  const propMaterials = useMemo(() => {
     const chev = chevronTexture()
     const chevR = chev.clone(); chevR.repeat.x = -1; chevR.offset.x = 1; chevR.wrapS = THREE.RepeatWrapping; chevR.needsUpdate = true
     return {
@@ -149,7 +149,7 @@ export default function Props() {
     }
   }, [])
 
-  const geo = useMemo(() => ({
+  const propGeometries = useMemo(() => ({
     archFoot: new THREE.CylinderGeometry(1.5, 1.7, 0.6, 16).translate(0, 0.3, 0),
     board: new THREE.PlaneGeometry(2.6, 1).translate(0, 1.3, 0),
     boardPost: new THREE.CylinderGeometry(0.06, 0.06, 1.3, 6).translate(0, 0.65, 0),
@@ -180,21 +180,21 @@ export default function Props() {
     <group>
       {archMeshes.map((arch, i) => (
         <group key={i} position={[arch.x, 0, arch.z]} rotation={[0, arch.yaw + Math.PI / 2, 0]}>
-          <mesh geometry={arch.geometry} material={mats.arch} castShadow receiveShadow />
-          <mesh geometry={geo.archFoot} material={mats.archFoot} position={[ROAD_HALF + 3.2, 0, 0]} />
-          <mesh geometry={geo.archFoot} material={mats.archFoot} position={[-(ROAD_HALF + 3.2), 0, 0]} />
+          <mesh geometry={arch.geometry} material={propMaterials.arch} castShadow receiveShadow />
+          <mesh geometry={propGeometries.archFoot} material={propMaterials.archFoot} position={[ROAD_HALF + 3.2, 0, 0]} />
+          <mesh geometry={propGeometries.archFoot} material={propMaterials.archFoot} position={[-(ROAD_HALF + 3.2), 0, 0]} />
         </group>
       ))}
-      <Instanced geometry={geo.board} material={mats.boardL} items={data.boardsLeft} place={placeFns.board} />
-      <Instanced geometry={geo.board} material={mats.boardR} items={data.boardsRight} place={placeFns.board} />
-      <Instanced geometry={geo.boardPost} material={mats.post} items={data.boards} place={placeFns.post(1)} castShadow={false} />
-      <Instanced geometry={geo.boardPost} material={mats.post} items={data.boards} place={placeFns.post(-1)} castShadow={false} />
-      {geo.tents.map((tentGeo, k) => (
-        <Instanced key={k} geometry={tentGeo} material={mats.tent} items={data.tents.filter((t) => t.kind === k)} place={placeFns.tent} />
+      <Instanced geometry={propGeometries.board} material={propMaterials.boardL} items={data.boardsLeft} place={placeFns.board} />
+      <Instanced geometry={propGeometries.board} material={propMaterials.boardR} items={data.boardsRight} place={placeFns.board} />
+      <Instanced geometry={propGeometries.boardPost} material={propMaterials.post} items={data.boards} place={placeFns.post(1)} castShadow={false} />
+      <Instanced geometry={propGeometries.boardPost} material={propMaterials.post} items={data.boards} place={placeFns.post(-1)} castShadow={false} />
+      {propGeometries.tents.map((tentGeo, k) => (
+        <Instanced key={k} geometry={tentGeo} material={propMaterials.tent} items={data.tents.filter((t) => t.kind === k)} place={placeFns.tent} />
       ))}
-      <Instanced geometry={geo.tentPole} material={mats.pole} items={data.tents} place={placeFns.tent} castShadow={false} />
-      <Instanced geometry={geo.barrel} material={mats.barrel} items={data.barrels} place={placeFns.barrel} color={barrelColor} />
-      <Instanced geometry={geo.hay} material={mats.hay} items={data.hay} place={placeFns.hay} />
+      <Instanced geometry={propGeometries.tentPole} material={propMaterials.pole} items={data.tents} place={placeFns.tent} castShadow={false} />
+      <Instanced geometry={propGeometries.barrel} material={propMaterials.barrel} items={data.barrels} place={placeFns.barrel} color={barrelColor} />
+      <Instanced geometry={propGeometries.hay} material={propMaterials.hay} items={data.hay} place={placeFns.hay} />
     </group>
   )
 }
