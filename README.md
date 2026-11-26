@@ -41,6 +41,26 @@ Re-export `kart.glb` with only the `Kart` collection selected and the `F1_Car` e
 Export `track.glb` with every other visible mesh selected.
 If the road changes, regenerate `trackPath.json`: vertices 0-599 and 600-1199 of `Road` are its two edges.
 
+## Grand Prix
+
+Four races, 3 laps each. Points per place: 10, 8, 6, 4, 2, 1. Most points after race 4 wins the cup.
+
+Screens (hand-drawn with rough.js): title, how to win, race card, results and championship, champion podium.
+Dev shortcut: `http://localhost:5179/?race=3` opens the card for race 3.
+
+### Tracks
+
+The four tracks (Sunny Meadow, Lakeside Loop, Twisty Hills, Canyon Sprint) are built in Blender by `blender/make_tracks.py`.
+Re-run it after editing the track shapes:
+
+```bash
+"C:/Program Files/Blender Foundation/Blender 5.2/blender.exe" -b --factory-startup --python blender/make_tracks.py -- .
+```
+
+That writes `blender/grand_prix_tracks.blend` (preview) and `src/tracks/<id>.json`.
+Each JSON is only the racing line (4-7 KB), and the browser generates the road, kerbs, terrain, start area and props from it.
+Each track's theme (colours, hills, lake, trees) is in `src/game/themes.js`.
+
 ## Credits
 
 Opponent cars: [Toy Car Kit](https://kenney.nl/assets/toy-car-kit) by Kenney (www.kenney.nl), CC0.

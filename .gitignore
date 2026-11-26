@@ -25,3 +25,6 @@ dist-ssr
 
 # downloaded source packs (only the used files live in public/)
 assets-src/
+
+# Blender auto-backups
+*.blend1

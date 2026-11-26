@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { useMemo } from 'react'
-import { pointAt, curvatureAt, LAP_LENGTH, ROAD_HALF, KERB_OUT, VERGE_OUT } from './game/path'
+import { pointAt, curvatureAt, LAP_LENGTH, ROAD_HALF, KERB_OUT, VERGE_OUT, lapGap } from './game/path'
+import { currentTheme } from './game/themes'
 import { LINE_S, gridSlot } from './game/constants'
 import { addWorldNoise } from './materials'
 
@@ -57,7 +58,7 @@ const decal = (props) => ({ polygonOffset: true, polygonOffsetFactor: -2, polygo
 export default function TrackSurface() {
   const parts = useMemo(() => {
     const red = new THREE.Color('#e3261c'), white = new THREE.Color('#f4f4f4')
-    const g1 = new THREE.Color('#5d9b3f'), g2 = new THREE.Color('#4a8532')
+    const [g1, g2] = currentTheme().verge.map((c) => new THREE.Color(c))
 
     // --- asphalt ---
     const asphalt = ribbon({ latA: -ROAD_HALF - 0.05, latB: ROAD_HALF + 0.05, yA: 0.02, yB: 0.02 })
@@ -78,7 +79,7 @@ export default function TrackSurface() {
     const lines = [
       ribbon({ latA: ROAD_HALF - 0.75, latB: ROAD_HALF - 0.4, yA: 0.025, yB: 0.025 }),
       ribbon({ latA: -ROAD_HALF + 0.4, latB: -ROAD_HALF + 0.75, yA: 0.025, yB: 0.025 }),
-      ribbon({ latA: -0.18, latB: 0.18, yA: 0.025, yB: 0.025, step: 3, keep: (s, i) => i % 3 === 0 && Math.abs(s - LINE_S) > 12 }),
+      ribbon({ latA: -0.18, latB: 0.18, yA: 0.025, yB: 0.025, step: 3, keep: (s, i) => i % 3 === 0 && lapGap(s, LINE_S) > 12 }),
     ]
 
     // --- striped mown-grass verges (wider stripes on the outside of corners) ---

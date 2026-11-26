@@ -141,6 +141,7 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
       h.surface.style.opacity = h.surface.textContent ? 1 : 0
       let big = ''
       if (R.phase === 'countdown') big = R.t < 0.6 ? '' : String(Math.max(1, 3 - Math.floor((R.t - 0.6) / 1.2)))
+      else if (P.finished) big = 'FINISH!'
       else if (R.t - R.raceStart < 1) big = 'GO!'
       else if (R.flash && R.t < R.flash.until) big = R.flash.text
       if (h.big.textContent !== big) { h.big.textContent = big; h.big.classList.remove('pop'); void h.big.offsetWidth; if (big) h.big.classList.add('pop') }

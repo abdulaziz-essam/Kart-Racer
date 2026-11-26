@@ -1,19 +1,53 @@
 import * as THREE from 'three'
-import { locate, VERGE_OUT, WORLD_SCALE } from './path'
+import { locate, pointAt, VERGE_OUT, TRACK, POINTS } from './path'
+import { currentTheme } from './themes'
 
-// Sculpted landscape around the circuit. The road stays at y = 0 (physics is
-// flat); the ground is flat near the track and the start area, rises into
-// grassy banks just past the verges, then rolling hills further out.
+// Sculpted landscape around the current circuit. The road stays at y = 0
+// (physics is flat); the ground is flat near the track and the start area,
+// rises into banks just past the verges, then hills further out. Each venue's
+// theme sets the colours and how hilly it is; Lakeside gets a lake in the infield.
 
-export const TERRAIN_SIZE = 1900
-const FLAT = VERGE_OUT + 3      // fully flat up to here (metres from the racing line)
-const HILLS = VERGE_OUT + 70    // hills reach full height by here
+const FLAT = VERGE_OUT + 6      // fully flat up to here (metres from the racing line)
+const HILLS = VERGE_OUT + 160   // hills reach full height only far away: gentle slopes, nothing wall-like
+export const WATER_LEVEL = -1.3
 
-// start area (grandstand, gantry, grid): kept flat too
-const START = { x0: 170 * WORLD_SCALE, x1: 285 * WORLD_SCALE, z0: -60 * WORLD_SCALE, z1: 60 * WORLD_SCALE }
-const startFlat = (x, z) => {
-  const dx = Math.max(START.x0 - x, 0, x - START.x1), dz = Math.max(START.z0 - z, 0, z - START.z1)
-  return THREE.MathUtils.smoothstep(Math.hypot(dx, dz), 0, 40)
+let cacheFor = null, info = null
+/** Per-track layout numbers (centre, size, start point, lake), recomputed when the track changes. */
+export function terrainInfo() {
+  if (cacheFor === TRACK) return info
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, cx = 0, cz = 0
+  for (const p of POINTS) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.y); maxZ = Math.max(maxZ, p.y)
+    cx += p.x; cz += p.y
+  }
+  cx /= POINTS.length; cz /= POINTS.length
+  const half = Math.max(maxX - minX, maxZ - minZ) / 2
+  const centre = { x: (minX + maxX) / 2, z: (minZ + maxZ) / 2 }
+  const start = pointAt(0)
+  // lake in the infield: the biggest open circle inside the loop, clear of the road
+  const theme = currentTheme()
+  let lake = null
+  if (theme.lake) {
+    const inside = (x, z) => { // even-odd point-in-polygon on the racing line
+      let c = false
+      for (let i = 0, j = POINTS.length - 1; i < POINTS.length; j = i++) {
+        const a = POINTS[i], b = POINTS[j]
+        if ((a.y > z) !== (b.y > z) && x < ((b.x - a.x) * (z - a.y)) / (b.y - a.y) + a.x) c = !c
+      }
+      return c
+    }
+    let best = { x: cx, z: cz, clear: 0 }
+    for (let x = minX; x <= maxX; x += 12) for (let z = minZ; z <= maxZ; z += 12) {
+      if (!inside(x, z)) continue
+      let clear = Infinity
+      for (const p of POINTS) { clear = Math.min(clear, Math.hypot(p.x - x, p.y - z)); if (clear < best.clear) break }
+      if (clear > best.clear) best = { x, z, clear }
+    }
+    if (best.clear > 70) lake = { x: best.x, z: best.z, r: best.clear - FLAT - 25 }
+  }
+  info = { centre, size: (half + 420) * 2, rimFrom: half + 260, start, lake, theme }
+  cacheFor = TRACK
+  return info
 }
 
 // cheap smooth noise from layered sines (deterministic, no textures)
@@ -29,37 +63,47 @@ function waves(x, z) {
 const loc = {}
 /** Ground height at (x, z). `lat` (distance from the racing line) can be passed if known. */
 export function heightAt(x, z, lat) {
+  const T = terrainInfo()
   const d = lat ?? Math.abs(locate(x, z, -1, loc).lat)
-  const away = THREE.MathUtils.smoothstep(d, FLAT, HILLS) * startFlat(x, z)
-  // low grassy bank hugging the verge
-  const bank = Math.exp(-(((d - FLAT - 5) / 4) ** 2)) * 1.4 * startFlat(x, z)
-  // rolling hills, taller far out; a bowl at the map edge hides the horizon
-  const r = Math.hypot(x, z)
-  const hills = Math.pow(waves(x, z), 1.6) * (14 + THREE.MathUtils.smoothstep(r, 350, 800) * 26)
-  const rim = Math.max(0, r - 760) * 0.35
-  return bank + away * hills + rim - 0.05
+  // the start straight (grid, gantry, grandstand) stays flat
+  const startFlat = THREE.MathUtils.smoothstep(Math.hypot(x - T.start.x, z - T.start.z), 90, 150)
+  const away = THREE.MathUtils.smoothstep(d, FLAT, HILLS) * startFlat
+  const r = Math.hypot(x - T.centre.x, z - T.centre.z)
+  const hills = Math.pow(waves(x, z), 1.6) * (T.theme.hills + THREE.MathUtils.smoothstep(r, T.rimFrom - 300, T.rimFrom + 150) * T.theme.farHills)
+  const rim = Math.max(0, r - T.rimFrom) * 0.35
+  let h = away * hills + rim - 0.05
+  if (T.lake) {
+    const lr = Math.hypot(x - T.lake.x, z - T.lake.z)
+    const basin = 1 - THREE.MathUtils.smoothstep(lr, T.lake.r * 0.75, T.lake.r * 1.15)
+    h = THREE.MathUtils.lerp(h, WATER_LEVEL - 3, basin * THREE.MathUtils.smoothstep(d, FLAT + 10, FLAT + 30))
+  }
+  return h
 }
 
-/** Ground colour: deeper green in hollows, lighter on hill tops, a little dry grass. */
+/** Ground colour from the venue theme: darker hollows, lighter tops, dry patches, sandy shores. */
 export function groundColor(c, x, z, h) {
-  const t = THREE.MathUtils.clamp(h / 28, 0, 1)
+  const { ground: g, dryHue } = terrainInfo().theme
+  const t = THREE.MathUtils.clamp(h / 30, 0, 1)
   const dry = THREE.MathUtils.smoothstep(waves(z * 1.7 + 300, x * 1.7 - 200), 0.72, 0.9)
-  c.setHSL(0.28 - t * 0.03 - dry * 0.06, 0.55 - dry * 0.15, 0.24 + t * 0.07 + dry * 0.06)
+  c.setHSL(g.hue - t * 0.03 + dry * dryHue, g.sat - dry * 0.15, g.light + t * 0.07 + dry * 0.06)
+  if (h < WATER_LEVEL + 0.8) c.lerp(new THREE.Color('#d8c48c'), THREE.MathUtils.clamp((WATER_LEVEL + 0.8 - h) / 1.5, 0, 1))
   return c
 }
 
-/** Build the terrain mesh geometry (done once at load). */
+/** Build the terrain mesh geometry for the current track (done once per race). */
 export function buildTerrainGeometry(segments = 220) {
-  const g = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, segments, segments)
+  const T = terrainInfo()
+  const g = new THREE.PlaneGeometry(T.size, T.size, segments, segments)
   g.rotateX(-Math.PI / 2)
+  g.translate(T.centre.x, 0, T.centre.z)
   const pos = g.attributes.position
   const colors = new Float32Array(pos.count * 3)
   const c = new THREE.Color()
   let hint = -1
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), z = pos.getZ(i)
-    // walking the grid row by row, so the previous nearest segment is a good hint,
-    // but rows jump; fall back to a full search at the start of each row
+    // rows are walked in order, so the previous nearest segment is a good hint;
+    // fall back to a full search at the start of each row
     const l = locate(x, z, i % (segments + 1) === 0 ? -1 : hint, loc)
     hint = l.i
     const h = heightAt(x, z, Math.abs(l.lat))

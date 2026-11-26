@@ -2,8 +2,8 @@ import * as THREE from 'three'
 import { useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js'
-import { heightAt } from './game/terrain'
-import { locate, pointAt, curvatureAt, LAP_LENGTH, VERGE_OUT, WORLD_SCALE } from './game/path'
+import { heightAt, terrainInfo, WATER_LEVEL } from './game/terrain'
+import { locate, pointAt, curvatureAt, LAP_LENGTH, VERGE_OUT } from './game/path'
 
 const EDGE = VERGE_OUT // outer edge of the striped verge
 
@@ -18,8 +18,12 @@ function rng(seed) { // mulberry32
   }
 }
 
-// keep the pit building, grandstand and start gantry area clear
-const nearPits = (x, z) => x > 160 * WORLD_SCALE && x < 290 * WORLD_SCALE && z > -70 * WORLD_SCALE && z < 70 * WORLD_SCALE
+// keep the start area (gantry, grid, grandstand) clear, and nothing in the lake
+const nearPits = (x, z) => {
+  const T = terrainInfo()
+  if (Math.hypot(x - T.start.x, z - T.start.z) < 95) return true
+  return T.lake ? Math.hypot(x - T.lake.x, z - T.lake.z) < T.lake.r * 1.2 : false
+}
 const clearOfTrack = (x, z, min) => Math.abs(locate(x, z).lat) > min
 
 /* ---------- geometries ---------- */
@@ -67,18 +71,21 @@ const M = {
 function useLayout(blenderTrees) {
   return useMemo(() => {
     const r = rng(1337)
+    const T = terrainInfo(), theme = T.theme
     const out = { round: [], pine: [], bush: [], tuft: [], flower: [], tire: [], rock: [], cloud: [], flag: [] }
     const scatter = (count, minLat, maxR, fn) => {
+      count = Math.round(count)
       for (let i = 0, tries = 0; i < count && tries < count * 20; tries++) {
         const a = r() * Math.PI * 2, d = Math.sqrt(r()) * maxR
-        const x = Math.cos(a) * d, z = Math.sin(a) * d
+        const x = T.centre.x + Math.cos(a) * d, z = T.centre.z + Math.sin(a) * d
+        if (heightAt(x, z) < WATER_LEVEL + 0.5) continue
         if (nearPits(x, z) || !clearOfTrack(x, z, minLat)) continue
         fn(x, z); i++
       }
     }
     // trees: Blender positions + extra forest, mixing round trees and pines
     for (const t of blenderTrees) if (!nearPits(t.x, t.z) && clearOfTrack(t.x, t.z, EDGE + 9)) (r() < 0.6 ? out.round : out.pine).push([t.x, t.z, t.s * (0.9 + r() * 0.3), r() * 6.28])
-    scatter(300, EDGE + 10, 660, (x, z) => (r() < 0.55 ? out.round : out.pine).push([x, z, 0.8 + r() * 0.7, r() * 6.28]))
+    scatter(300 * theme.trees, EDGE + 10, T.size * 0.42, (x, z) => (r() > theme.pines ? out.round : out.pine).push([x, z, 0.8 + r() * 0.7, r() * 6.28]))
     // bushes hugging the outside of the barriers
     for (let s = 0; s < LAP_LENGTH; s += 7) {
       const side = r() < 0.5 ? -1 : 1
@@ -91,7 +98,7 @@ function useLayout(blenderTrees) {
       const p = pointAt(s, side * (EDGE + 0.6 + r() * r() * 30))
       if (!nearPits(p.x, p.z)) out.tuft.push([p.x, p.z, 0.6 + r() * 0.9, r() * 6.28])
     }
-    for (let k = 0; k < 90; k++) { // flower patches
+    for (let k = 0; k < 90 * theme.flowers; k++) { // flower patches
       const s = r() * LAP_LENGTH, side = r() < 0.5 ? -1 : 1, lat = side * (EDGE + 4 + r() * 25)
       const c = pointAt(s, lat)
       if (nearPits(c.x, c.z)) continue
@@ -116,11 +123,11 @@ function useLayout(blenderTrees) {
         if (!nearPits(p.x, p.z)) out.flag.push([p.x, p.z, side, s])
       }
     }
-    scatter(90, EDGE + 12, 600, (x, z) => out.rock.push([x, z, 0.5 + r() * 1.6, r() * 6.28]))
+    scatter(90 * theme.rocks, EDGE + 12, T.size * 0.4, (x, z) => out.rock.push([x, z, 0.5 + r() * (1.6 + theme.rocks), r() * 6.28]))
     // clouds
     for (let c = 0; c < 26; c++) {
-      const a = (c / 26) * Math.PI * 2 + r() * 0.2, R = 720 + r() * 300, y = 90 + r() * 70
-      const cx = Math.cos(a) * R, cz = Math.sin(a) * R
+      const a = (c / 26) * Math.PI * 2 + r() * 0.2, R = T.size * 0.45 + r() * 300, y = 90 + r() * 70
+      const cx = T.centre.x + Math.cos(a) * R, cz = T.centre.z + Math.sin(a) * R
       for (let p = 0; p < 6; p++) out.cloud.push([cx + (r() - 0.5) * 60, y + r() * 10, cz + (r() - 0.5) * 25, 12 + r() * 14])
     }
     return out
@@ -148,6 +155,14 @@ const leafColor = (base, spread) => (c, it, i) => c.setHSL(base + ((i * 0.618) %
 
 export default function Scenery({ trees }) {
   const L = useLayout(trees)
+  const leaf = useMemo(() => {
+    const h = terrainInfo().theme.leafHue
+    return {
+      round: leafColor(h, 0.08),
+      bush: leafColor(h + 0.02, 0.07),
+      pine: (c, it, i) => c.setHSL(0.36 + ((i * 0.618) % 1) * 0.05, 0.55, 0.26 + ((i * 0.37) % 1) * 0.08),
+    }
+  }, [])
   const clouds = useRef()
   const flags = useRef()
   useFrame((state, dt) => {
@@ -161,10 +176,10 @@ export default function Scenery({ trees }) {
   return (
     <group>
       <Instances geometry={G.trunk} material={M.trunk} items={L.round} place={ground} />
-      <Instances geometry={G.crown} material={M.leaves} items={L.round} place={ground} color={leafColor(0.24, 0.08)} />
+      <Instances geometry={G.crown} material={M.leaves} items={L.round} place={ground} color={leaf.round} />
       <Instances geometry={G.trunk} material={M.trunk} items={L.pine} place={ground} />
-      <Instances geometry={G.pine} material={M.leaves} items={L.pine} place={ground} color={(c, it, i) => c.setHSL(0.36 + ((i * 0.618) % 1) * 0.05, 0.55, 0.26 + ((i * 0.37) % 1) * 0.08)} />
-      <Instances geometry={G.bush} material={M.leaves} items={L.bush} place={ground} color={leafColor(0.26, 0.07)} />
+      <Instances geometry={G.pine} material={M.leaves} items={L.pine} place={ground} color={leaf.pine} />
+      <Instances geometry={G.bush} material={M.leaves} items={L.bush} place={ground} color={leaf.bush} />
       <Instances geometry={G.tuft} material={M.grass} items={L.tuft} place={ground} castShadow={false}
         color={(c, it, i) => c.setHSL(0.25 + ((i * 0.618) % 1) * 0.06, 0.6, 0.3 + ((i * 0.31) % 1) * 0.15)} />
       <Instances geometry={G.flower} material={M.flower} items={L.flower} place={ground} castShadow={false}

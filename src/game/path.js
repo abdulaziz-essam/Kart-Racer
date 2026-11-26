@@ -1,24 +1,38 @@
 import * as THREE from 'three'
-import data from '../trackPath.json'
+import firstTrack from '../tracks/sunny-meadow.json'
 
-// The Blender layout is scaled up for a bigger circuit; Track.jsx scales the
-// Blender props (stands, pits, gantry, trees) by the same factor.
-export const WORLD_SCALE = 1.4
+// The current circuit's racing line (from blender/grand_prix_tracks.blend via
+// blender/make_tracks.py): x, z pairs every ~5 m in race direction, starting at
+// the start/finish line. setTrack() swaps it between races; the exports below
+// are live bindings, so every module sees the current track.
+export let TRACK = null
+export let POINTS = []
+export let LAP_LENGTH = 0
+let N = 0
+let cum = [0]
 
-// Racing line = centre of the road ribbon exported from Blender (x, z pairs),
-// ordered in the race direction.
-export const POINTS = data.points.map(([x, z]) => new THREE.Vector2(x * WORLD_SCALE, z * WORLD_SCALE))
+export function setTrack(data) {
+  if (TRACK === data) return
+  TRACK = data
+  POINTS = data.points.map(([x, z]) => new THREE.Vector2(x, z))
+  N = POINTS.length
+  cum = [0]
+  for (let i = 0; i < N; i++) cum.push(cum[i] + POINTS[i].distanceTo(POINTS[(i + 1) % N]))
+  LAP_LENGTH = cum[N]
+}
+setTrack(firstTrack)
+
+/** Shortest distance between two lap positions (handles the wrap at the line). */
+export function lapGap(a, b) {
+  const d = Math.abs(a - b) % LAP_LENGTH
+  return Math.min(d, LAP_LENGTH - d)
+}
 
 // Cross-section of the circuit, in metres from the racing line
-export const ROAD_HALF = 9                 // asphalt (18 m wide)
-export const KERB_OUT = ROAD_HALF + 1.4    // red/white kerbs
-export const VERGE_OUT = KERB_OUT + 5      // striped mown-grass verge
+export const ROAD_HALF = 6.5               // asphalt (13 m wide)
+export const KERB_OUT = ROAD_HALF + 1.2    // red/white kerbs
+export const VERGE_OUT = KERB_OUT + 3      // striped mown-grass verge
 export const WALL_LIMIT = 95               // no visible walls: just keeps karts on the map
-const N = POINTS.length
-
-const cum = [0]
-for (let i = 0; i < N; i++) cum.push(cum[i] + POINTS[i].distanceTo(POINTS[(i + 1) % N]))
-export const LAP_LENGTH = cum[N]
 
 const v = new THREE.Vector2()
 const d = new THREE.Vector2()

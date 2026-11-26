@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { useLayoutEffect, useMemo, useRef } from 'react'
-import { pointAt, yawAt, curvatureAt, LAP_LENGTH, ROAD_HALF, VERGE_OUT } from './game/path'
+import { pointAt, yawAt, curvatureAt, LAP_LENGTH, ROAD_HALF, VERGE_OUT, lapGap } from './game/path'
 import { LINE_S } from './game/constants'
 import { heightAt } from './game/terrain'
 
@@ -81,8 +81,8 @@ export default function Props() {
   const data = useMemo(() => {
     // ---- arches over straights (not at the start line, which has the gantry) ----
     const arches = []
-    for (const off of [260, 560, 900, 1250, 1700]) {
-      let s = wrap(LINE_S + off)
+    for (const frac of [0.17, 0.38, 0.6, 0.81]) {
+      let s = wrap(LINE_S + frac * LAP_LENGTH)
       // slide forward to a straight bit
       for (let k = 0; k < 40 && Math.abs(curvatureAt(s)) > 0.004; k++) s = wrap(s + 8)
       arches.push({ s, colors: [PALETTE[arches.length % 6], '#ffffff', PALETTE[(arches.length + 2) % 6]] })
@@ -95,7 +95,7 @@ export default function Props() {
       if (Math.abs(c) < 0.009) continue
       const side = -Math.sign(c) // outside of the corner
       const p = pointAt(s, side * (VERGE_OUT + 2.5))
-      if (Math.abs(s - LINE_S) < 60) continue
+      if (lapGap(s, LINE_S) < 60) continue
       boards.push({ x: p.x, z: p.z, yaw: yawAt(s), left: c > 0 })
     }
 
@@ -112,8 +112,8 @@ export default function Props() {
       }
     }
     camp(wrap(LINE_S - 140), 1, 8)
-    camp(wrap(LINE_S + 380), -1, 5)
-    camp(wrap(LINE_S + 1100), 1, 5)
+    camp(wrap(LINE_S + 0.27 * LAP_LENGTH), -1, 5)
+    camp(wrap(LINE_S + 0.7 * LAP_LENGTH), 1, 5)
 
     // ---- hay bales on medium corners ----
     const hay = []

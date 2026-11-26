@@ -1,11 +1,12 @@
 import { LAPS } from '../game/constants'
 
-const Hud = ({ hud, phase }) => {
+const Hud = ({ hud, phase, race }) => {
   const bind = (key) => (el) => { hud.current[key] = el }
   return (
     <div className={`hud ${phase}`}>
       <div className="panel pos" ref={bind('pos')}>4<sup>th</sup><small>/6</small></div>
       <div className="panel lap">
+        {race && <div><span>RACE</span><b>{race}</b></div>}
         <div><span>LAP</span><b ref={bind('lap')}>1/{LAPS}</b></div>
         <div><span>TIME</span><b ref={bind('time')}>0.00</b></div>
         <div><span>BEST LAP</span><b ref={bind('best')}>--</b></div>
