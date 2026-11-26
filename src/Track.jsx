@@ -26,12 +26,7 @@ function checkerTexture() {
   return texture
 }
 
-function buildStartArea() {
-  const group = new THREE.Group()
-  const p = pointAt(0), yaw = yawAt(0)
-  const boxes = []
-
-  // ---- gantry over the start line ----
+function buildGantry(p, yaw, boxes) {
   const gantry = new THREE.Group()
   gantry.position.set(p.x, 0, p.z); gantry.rotation.y = yaw
   const postMat = new THREE.MeshStandardMaterial({ color: '#ffc21f', roughness: 0.5 })
@@ -55,7 +50,6 @@ function buildStartArea() {
     b.position.set(-0.7, 7.8, (i - 2) * 1.5)
     gantry.add(b); bulbs.push(b)
   }
-  // balloon bunches on the posts
   const balloons = []
   for (const side of [-1, 1]) for (let k = 0; k < 7; k++) {
     const m = new THREE.Mesh(new THREE.SphereGeometry(0.75, 16, 12), new THREE.MeshStandardMaterial({ color: PALETTE[(k + (side > 0 ? 3 : 0)) % 6], roughness: 0.35 }))
@@ -64,58 +58,6 @@ function buildStartArea() {
     m.castShadow = true
     gantry.add(m); balloons.push({ o: m, y: m.position.y, p: Math.random() * 6 })
   }
-  group.add(gantry)
-
-  // ---- grandstand beside the start straight, with a crowd ----
-  // chooseStand() picks the side and size whose footprint is clear of every
-  // stretch of road (tight layouts can loop back right behind the start).
-  const S = chooseStand()
-  if (S) {
-    const RD = STAND_ROW_DEPTH, RR = STAND_ROW_RISE
-    const stand = new THREE.Group()
-    const sp = pointAt(0, S.side * (Math.abs(S.lat) + RD / 2))
-    // local +z points away from the road: right of travel at `yaw`, left at `yaw + PI`
-    stand.position.set(sp.x, 0, sp.z); stand.rotation.y = S.side < 0 ? yaw : yaw + Math.PI
-    const concrete = new THREE.MeshStandardMaterial({ color: '#e9dfc8', roughness: 0.85 })
-    const seatMats = ['#e3261c', '#2f7bff'].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 }))
-    for (let r = 0; r < S.rows; r++) {
-      const step = new THREE.Mesh(new THREE.BoxGeometry(S.length, RR * (r + 1), RD), r % 2 ? seatMats[r % 4 === 1 ? 0 : 1] : concrete)
-      step.position.set(0, (RR * (r + 1)) / 2, r * RD)
-      step.castShadow = step.receiveShadow = true
-      stand.add(step)
-    }
-    const depth = S.rows * RD
-    const back = new THREE.Mesh(new THREE.BoxGeometry(S.length, S.rows * RR + 4, 0.6), concrete)
-    back.position.set(0, (S.rows * RR + 4) / 2, depth - RD / 2 + 0.3); back.castShadow = true
-    stand.add(back)
-    const roof = new THREE.Mesh(new THREE.BoxGeometry(S.length + 4, 0.4, depth + 4), new THREE.MeshStandardMaterial({ color: '#f4f4f4', roughness: 0.5 }))
-    roof.position.set(0, S.rows * RR + 5, depth / 2 - 2); roof.rotation.x = -0.06; roof.castShadow = true
-    stand.add(roof)
-    for (const sx of [-1, 1]) {
-      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, S.rows * RR + 5, 8), concrete)
-      col.position.set(sx * (S.length / 2), (S.rows * RR + 5) / 2, -1.5)
-      stand.add(col)
-    }
-    // crowd: one instanced mesh of little round fans in random shirt colours, only on the seats
-    const perRow = Math.round(S.length / 1.45)
-    const fans = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.32, 0.5, 3, 8), new THREE.MeshStandardMaterial({ roughness: 0.7 }), S.rows * perRow)
-    const dummy = new THREE.Object3D(), tempColor = new THREE.Color()
-    let fanCount = 0
-    for (let r = 0; r < S.rows; r++) for (let k = 0; k < perRow; k++) {
-      if (Math.random() < 0.18) continue
-      dummy.position.set(-S.length / 2 + 1 + k * ((S.length - 2) / (perRow - 1)), RR * (r + 1) + 0.6, r * RD + (Math.random() - 0.5) * 0.6)
-      dummy.updateMatrix(); fans.setMatrixAt(fanCount, dummy.matrix)
-      fans.setColorAt(fanCount, tempColor.setHSL(Math.random(), 0.65, 0.55)); fanCount++
-    }
-    fans.count = fanCount
-    stand.add(fans)
-    group.add(stand)
-    // collider: the whole stand footprint
-    const mid = pointAt(0, S.centreLat)
-    boxes.push(boxAt(mid.x, mid.z, yaw, S.length / 2 + 0.5, depth / 2 + 0.5))
-  }
-
-  // ---- bunting between the gantry and the stand ----
   const flagGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0.35, -0.4), new THREE.Vector3(0, 0.35, 0.4), new THREE.Vector3(0, -0.5, 0)])
   flagGeo.computeVertexNormals()
   for (let i = 0; i < 16; i++) {
@@ -124,6 +66,61 @@ function buildStartArea() {
     f.position.set(0, 7 - Math.sin(t * Math.PI) * 0.8, -POST_LAT + t * POST_LAT * 2)
     gantry.add(f)
   }
+  return { gantryGroup: gantry, bulbs, balloons }
+}
+
+function buildGrandstand(yaw, boxes) {
+  const S = chooseStand()
+  if (!S) return null
+  const RD = STAND_ROW_DEPTH, RR = STAND_ROW_RISE
+  const stand = new THREE.Group()
+  const sp = pointAt(0, S.side * (Math.abs(S.lat) + RD / 2))
+  stand.position.set(sp.x, 0, sp.z); stand.rotation.y = S.side < 0 ? yaw : yaw + Math.PI
+  const concrete = new THREE.MeshStandardMaterial({ color: '#e9dfc8', roughness: 0.85 })
+  const seatMats = ['#e3261c', '#2f7bff'].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 }))
+  for (let r = 0; r < S.rows; r++) {
+    const step = new THREE.Mesh(new THREE.BoxGeometry(S.length, RR * (r + 1), RD), r % 2 ? seatMats[r % 4 === 1 ? 0 : 1] : concrete)
+    step.position.set(0, (RR * (r + 1)) / 2, r * RD)
+    step.castShadow = step.receiveShadow = true
+    stand.add(step)
+  }
+  const depth = S.rows * RD
+  const back = new THREE.Mesh(new THREE.BoxGeometry(S.length, S.rows * RR + 4, 0.6), concrete)
+  back.position.set(0, (S.rows * RR + 4) / 2, depth - RD / 2 + 0.3); back.castShadow = true
+  stand.add(back)
+  const roof = new THREE.Mesh(new THREE.BoxGeometry(S.length + 4, 0.4, depth + 4), new THREE.MeshStandardMaterial({ color: '#f4f4f4', roughness: 0.5 }))
+  roof.position.set(0, S.rows * RR + 5, depth / 2 - 2); roof.rotation.x = -0.06; roof.castShadow = true
+  stand.add(roof)
+  for (const sx of [-1, 1]) {
+    const col = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, S.rows * RR + 5, 8), concrete)
+    col.position.set(sx * (S.length / 2), (S.rows * RR + 5) / 2, -1.5)
+    stand.add(col)
+  }
+  const perRow = Math.round(S.length / 1.45)
+  const fans = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.32, 0.5, 3, 8), new THREE.MeshStandardMaterial({ roughness: 0.7 }), S.rows * perRow)
+  const dummy = new THREE.Object3D(), tempColor = new THREE.Color()
+  let fanCount = 0
+  for (let r = 0; r < S.rows; r++) for (let k = 0; k < perRow; k++) {
+    if (Math.random() < 0.18) continue
+    dummy.position.set(-S.length / 2 + 1 + k * ((S.length - 2) / (perRow - 1)), RR * (r + 1) + 0.6, r * RD + (Math.random() - 0.5) * 0.6)
+    dummy.updateMatrix(); fans.setMatrixAt(fanCount, dummy.matrix)
+    fans.setColorAt(fanCount, tempColor.setHSL(Math.random(), 0.65, 0.55)); fanCount++
+  }
+  fans.count = fanCount
+  stand.add(fans)
+  const mid = pointAt(0, S.centreLat)
+  boxes.push(boxAt(mid.x, mid.z, yaw, S.length / 2 + 0.5, depth / 2 + 0.5))
+  return stand
+}
+
+function buildStartArea() {
+  const group = new THREE.Group()
+  const p = pointAt(0), yaw = yawAt(0)
+  const boxes = []
+  const { gantryGroup, bulbs, balloons } = buildGantry(p, yaw, boxes)
+  const grandstand = buildGrandstand(yaw, boxes)
+  group.add(gantryGroup)
+  if (grandstand) group.add(grandstand)
   return { group, boxes, bulbs, balloons }
 }
 
