@@ -96,18 +96,7 @@ function buildGrandstand(yaw, boxes) {
     col.position.set(sx * (S.length / 2), (S.rows * RR + 5) / 2, -1.5)
     stand.add(col)
   }
-  const perRow = Math.round(S.length / 1.45)
-  const fans = new THREE.InstancedMesh(new THREE.CapsuleGeometry(0.32, 0.5, 3, 8), new THREE.MeshStandardMaterial({ roughness: 0.7 }), S.rows * perRow)
-  const dummy = new THREE.Object3D(), tempColor = new THREE.Color()
-  let fanCount = 0
-  for (let r = 0; r < S.rows; r++) for (let k = 0; k < perRow; k++) {
-    if (Math.random() < 0.18) continue
-    dummy.position.set(-S.length / 2 + 1 + k * ((S.length - 2) / (perRow - 1)), RR * (r + 1) + 0.6, r * RD + (Math.random() - 0.5) * 0.6)
-    dummy.updateMatrix(); fans.setMatrixAt(fanCount, dummy.matrix)
-    fans.setColorAt(fanCount, tempColor.setHSL(Math.random(), 0.65, 0.55)); fanCount++
-  }
-  fans.count = fanCount
-  stand.add(fans)
+  // (no crowd: the grandstand stays empty)
   const mid = pointAt(0, S.centreLat)
   boxes.push(boxAt(mid.x, mid.z, yaw, S.length / 2 + 0.5, depth / 2 + 0.5))
   return stand
