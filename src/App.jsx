@@ -1,6 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { SoftShadows } from '@react-three/drei'
 import { EffectComposer, N8AO, Bloom, Vignette, ToneMapping, SMAA, HueSaturation, BrightnessContrast } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import SkyDome from './SkyDome'
@@ -110,14 +109,14 @@ export default function App() {
   return (
     <>
       <Canvas
-        shadows
+        // smooth PCF soft shadows (the random-sample soft shadows looked grainy)
+        shadows="soft"
         dpr={[1, 1.75]}
         camera={{ fov: 60, near: 0.3, far: 4000, position: [0, 30, 60] }}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
       >
         <fog attach="fog" args={['#cfe0ec', 420, 1700]} />
         <hemisphereLight args={['#cfe6ff', '#6b8f3a', 0.65]} />
-        <SoftShadows size={18} samples={12} focus={0.6} />
         <SkyDome />
         <StudioEnvironment />
         {/* paper-cutout look: thick ink outlines on cars, props and trees */}
@@ -129,7 +128,8 @@ export default function App() {
           {ready && screen === 'race' && <Race key={`race-${trackKey}-${run}`} track={loadedTrack} hud={hud} onPhase={setPhase} onFinish={onFinish} paused={paused} />}
           {ready && practice && <Race key={`race-practice-${run}`} practice track={loadedTrack} hud={hud} onPhase={setPhase} paused={paused} />}
         </Suspense>
-        <EffectComposer multisampling={0} enableNormalPass={false}>
+        {/* 4x MSAA: smooth road edges, kerbs and ink outlines */}
+        <EffectComposer multisampling={4} enableNormalPass={false}>
           <N8AO aoRadius={1.6} distanceFalloff={1.2} intensity={2.2} color="#20263a" halfRes quality="medium" />
           <Bloom mipmapBlur luminanceThreshold={1.1} luminanceSmoothing={0.2} intensity={0.15} />
           <ToneMapping mode={ToneMappingMode.NEUTRAL} />

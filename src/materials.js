@@ -30,9 +30,11 @@ export function addWorldNoise(material, params) {
         vec2 wp = vWorldPosN.xz;
         float big = fbm(wp * ${params.large.toFixed(4)});
         float speck = vnoise(wp * ${params.fine.toFixed(4)});
-        diffuseColor.rgb *= 1.0 + (big - 0.5) * ${params.largeAmt.toFixed(3)} + (speck - 0.5) * ${params.fineAmt.toFixed(3)};`)
+        // fade the fine speckle out where it is smaller than a pixel (stops far-away shimmer)
+        float speckFade = 1.0 - smoothstep(0.35, 1.0, length(fwidth(wp * ${params.fine.toFixed(4)})));
+        diffuseColor.rgb *= 1.0 + (big - 0.5) * ${params.largeAmt.toFixed(3)} + (speck - 0.5) * ${params.fineAmt.toFixed(3)} * speckFade;`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
-        roughnessFactor = clamp(roughnessFactor + (speck - 0.5) * ${params.rough.toFixed(3)}, 0.04, 1.0);`)
+        roughnessFactor = clamp(roughnessFactor + (speck - 0.5) * ${params.rough.toFixed(3)} * speckFade, 0.04, 1.0);`)
   }
   material.customProgramCacheKey = () => 'wn' + JSON.stringify(params)
   material.needsUpdate = true

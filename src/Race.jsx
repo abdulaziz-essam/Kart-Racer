@@ -16,7 +16,8 @@ export default function Race({ track, hud, onPhase, onFinish, practice = false, 
   const kenneyModels = useGLTF(KENNEY_MODELS.map(kenneyUrl))
   const palette = useTexture('/models/kenney/Textures/variation-b.png', (t) => {
     t.flipY = false; t.colorSpace = THREE.SRGBColorSpace
-    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false
+    // crisp colour blocks up close, mipmaps far away (no sparkly pixels on distant cars)
+    t.magFilter = THREE.NearestFilter; t.minFilter = THREE.LinearMipmapLinearFilter; t.generateMipmaps = true; t.anisotropy = 4
     t.needsUpdate = true
   })
   const keys = useKeys()

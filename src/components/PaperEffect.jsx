@@ -26,9 +26,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
   // saturate a little, like construction paper
   float pl = dot(paper, vec3(0.299, 0.587, 0.114));
   paper = mix(vec3(pl), paper, 1.0 + 0.22 * strength);
-  // paper fibres
+  // soft paper mottling (large-scale, so it never looks like pixel noise)
   vec2 px = uv * resolution;
-  float grain = 1.0 + (vnoise(px * 0.7) - 0.5) * 0.05 * strength;
+  float grain = 1.0 + (vnoise(px * 0.012) - 0.5) * 0.035 * strength;
   outputColor = vec4(clamp(paper * grain, 0.0, 1.0), inputColor.a);
 }
 `
