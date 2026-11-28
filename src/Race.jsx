@@ -12,7 +12,7 @@ import { getProfile, playerStats, paintColor } from './game/profile'
 
 export { LAPS, RACERS } from './game/constants'
 
-export default function Race({ track, hud, onPhase, onFinish }) {
+export default function Race({ track, hud, onPhase, onFinish, practice = false, paused = false }) {
   const kenneyModels = useGLTF(KENNEY_MODELS.map(kenneyUrl))
   const palette = useTexture('/models/kenney/Textures/variation-b.png', (t) => {
     t.flipY = false; t.colorSpace = THREE.SRGBColorSpace
@@ -22,20 +22,21 @@ export default function Race({ track, hud, onPhase, onFinish }) {
   const keys = useKeys()
   const sun = useRef()
 
-  const field = useMemo(() => RACERS.map((baseConfig, idx) => {
+  // practice on the Test Track: just you
+  const field = useMemo(() => RACERS.filter((r) => !practice || r.player).map((baseConfig, idx) => {
     // the player drives the car, paint and upgrades chosen in the paddock garage
     const profile = getProfile()
     const stats = baseConfig.player ? playerStats(profile) : null
     const racerConfig = baseConfig.player ? { ...baseConfig, model: stats.model, paint: paintColor(profile) } : baseConfig
-    const { s, lat } = gridSlot(GRID_ORDER.indexOf(idx))
+    const { s, lat } = gridSlot(practice ? 0 : GRID_ORDER.indexOf(idx))
     const pos = pointAt(s, lat)
     const kartState = createKartState(pos, yawAt(s), { offset: s - LINE_S, ...(stats && { speedMul: stats.speedMul, gripMul: stats.gripMul, accelMul: stats.accelMul, boostMul: stats.boostMul }) })
     if (kartState.offset > 0) kartState.offset -= LAP_LENGTH
     const kart = makeKenneyKart(kenneyModels[KENNEY_MODELS.indexOf(racerConfig.model)].scene, palette, racerConfig.paint)
     return { ...racerConfig, idx, st: kartState, kart, ai: racerConfig.player ? null : { lane: lat * 0.6, phase: idx * 1.7, skill: racerConfig.skill } }
-  }), [kenneyModels, palette])
+  }), [kenneyModels, palette, practice])
 
-  useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
+  useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish, practice, paused })
 
   return (
     <>

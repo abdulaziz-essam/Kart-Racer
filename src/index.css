@@ -98,3 +98,42 @@ body { font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif; user-sele
 .hub-hud .hub-start button { width: 100%; margin-top: 8px; padding: 12px; font: inherit; font-family: 'Permanent Marker', 'Comic Sans MS', cursive; font-size: 24px; color: #2b2a33; background: #ffd21f; border: 3px solid #2b2a33; border-radius: 12px; cursor: pointer; box-shadow: 3px 3px 0 #2b2a33; }
 @media (max-width: 700px) { .hub-hud .garage { display: none; } .hub-hud .prompt { font-size: 15px; white-space: normal; width: 90vw; text-align: center; } }
 .hub-hud .coin { display: inline-block; width: 26px; height: 26px; margin-right: 8px; vertical-align: -3px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #fff3a8, #ffcf3a 45%, #c8901a); border: 2px solid #8a5a10; }
+.practice-tip { position: fixed; left: 50%; top: 16px; transform: translateX(-50%); padding: 8px 16px; border-radius: 12px; background: rgba(10, 22, 70, .75); border: 2px solid #ffd21f; color: #fff; font-weight: 800; pointer-events: none; }
+.intro .sketch-hit { cursor: pointer; }
+.intro .sketch-hit:hover { fill: rgba(255, 210, 31, 0.18); }
+
+/* ---------- hand-drawn (rough.js) HUD + menus ---------- */
+.rough-box { position: relative; }
+.rough-box > .rough-bg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; z-index: 0; }
+.rough-box > .rough-content { position: relative; z-index: 1; }
+.hud.sketchy { color: #2b2a33; font-family: 'Patrick Hand', 'Comic Sans MS', cursive; }
+.hud.sketchy .panel { background: none; border: 0; box-shadow: none; text-shadow: none; border-radius: 0; font-weight: 400; }
+.hud.sketchy .pos { font-family: 'Permanent Marker', 'Comic Sans MS', cursive; font-size: 50px; min-width: 120px; padding: 8px 18px 10px; color: #e3261c; }
+.hud.sketchy .pos sup { color: #2b2a33; font-size: 22px; }
+.hud.sketchy .pos small { color: #2b2a33; opacity: .7; }
+.hud.sketchy .lap { font-size: 21px; min-width: 200px; padding: 10px 18px; top: 104px; }
+.hud.sketchy .lap span { font-size: 17px; letter-spacing: 0; opacity: .75; text-transform: lowercase; }
+.hud.sketchy .lap b { color: #e3261c; font-weight: 400; font-size: 23px; }
+.hud.sketchy .board { padding: 10px 16px; min-width: 160px; font-size: 19px; }
+.hud.sketchy .board ol { margin: 0; padding: 0; list-style: none; }
+.hud.sketchy .board li { display: flex; align-items: center; gap: 8px; padding: 1px 0; opacity: 1; }
+.hud.sketchy .board li.me { color: #e3261c; font-weight: 700; }
+.hud.sketchy .board i { border-color: #2b2a33; }
+.hud.sketchy .speed { font-family: 'Permanent Marker', 'Comic Sans MS', cursive; font-size: 44px; min-width: 128px; padding: 8px 18px; }
+.hud.sketchy .speed small { color: #2b2a33; font-family: 'Patrick Hand', cursive; font-size: 17px; letter-spacing: 1px; }
+.hud.sketchy .help { font-size: 17px; padding: 6px 16px; font-weight: 400; }
+.hud.sketchy .toast { font-family: 'Permanent Marker', 'Comic Sans MS', cursive; color: #fff; -webkit-text-stroke: 4px #2b2a33; paint-order: stroke fill; text-shadow: none; font-size: 30px; }
+.hud.sketchy .big { font-family: 'Permanent Marker', 'Comic Sans MS', cursive; font-weight: 400; color: #ffd21f; -webkit-text-stroke: 7px #2b2a33; text-shadow: 6px 6px 0 rgba(43, 42, 51, .35); }
+.practice-tip { font-family: 'Patrick Hand', 'Comic Sans MS', cursive; font-size: 20px; font-weight: 400; color: #2b2a33; background: #fbf6ea; border: 2.5px solid #2b2a33; border-radius: 6px 14px 8px 12px; box-shadow: 3px 3px 0 #2b2a33; }
+
+/* pause menu */
+.pause { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(43, 42, 51, .35); z-index: 20; font-family: 'Patrick Hand', 'Comic Sans MS', cursive; }
+.pause .card { width: min(380px, calc(100vw - 32px)); padding: 24px 26px 26px; color: #2b2a33; }
+.pause h2 { margin: 0 0 6px; text-align: center; font-family: 'Permanent Marker', 'Comic Sans MS', cursive; font-size: 46px; font-weight: 400; }
+.pause p { margin: 0 0 16px; text-align: center; font-size: 19px; opacity: .8; }
+.rough-button { display: block; width: 100%; margin: 12px 0 0; padding: 12px 10px; border: 0; background: none; cursor: pointer; font-family: 'Permanent Marker', 'Comic Sans MS', cursive; font-size: 24px; color: #2b2a33; }
+.rough-button:hover .rough-content, .rough-button:focus-visible .rough-content { color: #e3261c; }
+.rough-button:focus { outline: none; }
+.hud.sketchy .lap > .rough-content { display: block; }
+.hud.sketchy .lap > .rough-content > div { display: flex; justify-content: space-between; gap: 16px; }
+.paper-frame { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 5; }

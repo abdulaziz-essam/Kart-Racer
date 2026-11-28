@@ -7,8 +7,9 @@ import { useCameraChase } from './useCameraChase'
 import { updateHud } from './useHudUpdate'
 import { LAP_LENGTH } from '../game/path'
 import { LAPS } from '../game/constants'
+import { recordPracticeLap } from '../game/profile'
 
-export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish }) {
+export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish, practice = false, paused = false }) {
   const race = useRef({ t: 0, phase: 'countdown', lights: -1, results: [], hudT: 0, lapStart: 0, lastLap: 1, best: null, lapTimes: [] })
   const finishOrderCache = useRef([...field])
   const { updateCamera, initCamera } = useCameraChase()
@@ -19,6 +20,7 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
   }, [field, onPhase])
 
   useFrame((state, rawDt) => {
+    if (paused) return // pause menu open: the race clock and karts freeze
     const dt = Math.min(rawDt, 1 / 30)
     const raceState = race.current
     raceState.t += dt
@@ -33,19 +35,24 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
     for (const racer of field) {
       const kartState = racer.st
       kartState.progress = kartState.raceDist + kartState.offset
-      if (!kartState.finished && kartState.progress >= LAPS * LAP_LENGTH && racing) {
+      if (!practice && !kartState.finished && kartState.progress >= LAPS * LAP_LENGTH && racing) {
         kartState.finished = true; kartState.finishTime = raceState.t - raceState.raceStart
         raceState.results.push({ name: racer.name, time: kartState.finishTime, player: !!racer.player, paint: racer.paint })
         if (racer.player) { raceState.phase = 'finished'; onPhase?.('finished'); onFinish?.(raceState.results.slice(), field) }
         else if (playerKart.finished) onFinish?.(raceState.results.slice(), field)
       }
     }
-    const currentLap = Math.min(LAPS, Math.max(1, Math.floor(playerKart.progress / LAP_LENGTH) + 1))
+    // practice (Test Track): endless laps, no finish
+    const lapNumber = Math.max(1, Math.floor(playerKart.progress / LAP_LENGTH) + 1)
+    const currentLap = practice ? lapNumber : Math.min(LAPS, lapNumber)
     if (racing && !playerKart.finished && currentLap !== raceState.lastLap) {
       const lapTime = raceState.t - raceState.lapStart
       raceState.lapTimes.push(lapTime); raceState.best = raceState.best == null ? lapTime : Math.min(raceState.best, lapTime)
       raceState.lapStart = raceState.t; raceState.lastLap = currentLap
-      raceState.flash = { text: currentLap === LAPS ? 'FINAL LAP!' : `LAP ${currentLap}`, until: raceState.t + 1.6 }
+      if (practice) {
+        const record = recordPracticeLap(lapTime)
+        raceState.flash = { text: record ? `NEW BEST ${lapTime.toFixed(2)}s!` : `LAP ${lapTime.toFixed(2)}s`, until: raceState.t + 2 }
+      } else raceState.flash = { text: currentLap === LAPS ? 'FINAL LAP!' : `LAP ${currentLap}`, until: raceState.t + 1.6 }
     }
 
     const elapsed = state.clock.elapsedTime
@@ -69,6 +76,6 @@ export function useRaceLoop({ field, track, hud, keys, sun, onPhase, onFinish })
 
     updateCamera({ playerKart, raceState, sun, dt })
     raceState.hudT += dt
-    updateHud({ hudElements: hud.current, field, finishOrderCache, player, playerKart, raceState, currentLap, racing })
+    updateHud({ hudElements: hud.current, field, finishOrderCache, player, playerKart, raceState, currentLap, racing, practice })
   })
 }

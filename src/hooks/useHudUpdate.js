@@ -2,7 +2,7 @@ import { LAPS } from '../game/constants'
 
 const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : n % 10] || 'th')
 
-export function updateHud({ hudElements, field, finishOrderCache, player, playerKart, raceState, currentLap, racing }) {
+export function updateHud({ hudElements, field, finishOrderCache, player, playerKart, raceState, currentLap, racing, practice }) {
   if (hudElements.speed && raceState.hudT > 0.06) {
     raceState.hudT = 0
     finishOrderCache.current = [...field].sort((a, b) => {
@@ -13,8 +13,10 @@ export function updateHud({ hudElements, field, finishOrderCache, player, player
     const playerPlace = finishOrderCache.current.indexOf(player) + 1
     hudElements.speed.textContent = Math.round(Math.abs(playerKart.speed) * 3.6)
     hudElements.pos.innerHTML = `${playerPlace}<sup>${ordinal(playerPlace).slice(String(playerPlace).length)}</sup><small>/${field.length}</small>`
-    hudElements.lap.textContent = `${currentLap}/${LAPS}`
-    hudElements.time.textContent = racing ? ((playerKart.finished ? playerKart.finishTime : raceState.t - raceState.raceStart)).toFixed(2) : '0.00'
+    hudElements.lap.textContent = practice ? `${currentLap}` : `${currentLap}/${LAPS}`
+    // practice shows the current lap time; races show the total race time
+    const timeFrom = practice ? raceState.lapStart : raceState.raceStart
+    hudElements.time.textContent = racing ? ((playerKart.finished ? playerKart.finishTime : raceState.t - timeFrom)).toFixed(2) : '0.00'
     hudElements.best.textContent = raceState.best == null ? '--' : raceState.best.toFixed(2)
     hudElements.surface.textContent = playerKart.boost > 0 ? '🔥 BOOST!' : playerKart.drifting ? (playerKart.driftTime > 0.8 ? '✨ Release to boost!' : '💨 Drifting…') : playerKart.surface === 'grass' ? '🌱 Off track!' : ''
     hudElements.surface.style.opacity = hudElements.surface.textContent ? 1 : 0

@@ -41,6 +41,9 @@ const fresh = () => ({
   cars: ['racer'], paints: ['blue'],
   upgrades: { engine: 0, tyres: 0, boost: 0 },
   car: 'racer', paint: 'blue',
+  trophies: {},      // trackId -> best finishing place (1 = win)
+  cups: 0,           // Grand Prix championships won
+  practiceBest: null, // best Test Track lap (seconds)
 })
 
 function load() {
@@ -96,6 +99,28 @@ export function buyUpgrade(id) {
 }
 
 export function resetProfile() { set(fresh()) }
+
+/** Remember the best place ever reached on a track (for the Trophy Hall). */
+export function recordRace(trackId, place) {
+  const best = state.trophies?.[trackId]
+  if (best && best <= place) return
+  set({ ...state, trophies: { ...state.trophies, [trackId]: place } })
+}
+export function recordCup() { set({ ...state, cups: (state.cups || 0) + 1 }) }
+export function recordPracticeLap(seconds) {
+  if (state.practiceBest != null && state.practiceBest <= seconds) return false
+  set({ ...state, practiceBest: seconds })
+  return true
+}
+
+/** Cycle to the next car you own (Your Garage). */
+export function nextOwnedCar() {
+  const owned = CARS.filter((c) => state.cars.includes(c.id))
+  const i = owned.findIndex((c) => c.id === state.car)
+  const next = owned[(i + 1) % owned.length]
+  set({ ...state, car: next.id })
+  return { ok: true, message: owned.length > 1 ? `Now driving the ${next.name}` : 'Buy more cars in the Store!' }
+}
 
 /* ---------- what the race uses ---------- */
 export const paintColor = (p = state) => PAINTS.find((x) => x.id === p.paint)?.color || PAINTS[0].color
